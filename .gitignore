@@ -1,0 +1,57 @@
+# =============================
+# Ambiente Virtual (Python)
+# =============================
+tr1-env/
+venv/
+.env/
+.venv/
+
+# =============================
+# Arquivos de cache / compilação
+# =============================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.o
+*.out
+*.log
+
+# =============================
+# GNU Radio build / modtool
+# =============================
+build/
+cmake-build*/
+gr-*/build/
+*.grc~
+
+# =============================
+# VS Code / Editor
+# =============================
+.vscode/
+*.code-workspace
+
+# =============================
+# Dados temporários
+# =============================
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# =============================
+# Relatórios e saídas
+# =============================
+report/*.pdf
+report/*.docx
+report/*.odt
+report/*.png
+report/*.jpg
+
+# =============================
+# Outras pastas geradas
+# =============================
+__MACOSX/
+dist/
