@@ -21,15 +21,15 @@ class MainWindow(Gtk.Window):
 
         # Botões de navegação
         self.btn_111 = Gtk.Button(label="1.1.1 - Codificação (Camada Física)")
-        self.btn_111.connect("clicked", lambda b: on_select_callback("1.1.1"))
+        self.btn_111.connect("clicked", lambda b: on_select_callback("1.1.1", self))
         vbox.pack_start(self.btn_111, False, False, 0)
 
-        self.btn_112 = Gtk.Button(label="1.1.2 - Em desenvolvimento")
-        self.btn_112.connect("clicked", lambda b: on_select_callback("1.1.2"))
+        self.btn_112 = Gtk.Button(label="1.1.2 - Modulação por Portadora (ASK)")
+        self.btn_112.connect("clicked", lambda b: on_select_callback("1.1.2", self))
         vbox.pack_start(self.btn_112, False, False, 0)
 
         self.btn_211 = Gtk.Button(label="2.1.1 - Em desenvolvimento")
-        self.btn_211.connect("clicked", lambda b: on_select_callback("2.1.1"))
+        self.btn_211.connect("clicked", lambda b: on_select_callback("2.1.1", self))
         vbox.pack_start(self.btn_211, False, False, 0)
 
         self.connect("destroy", Gtk.main_quit)

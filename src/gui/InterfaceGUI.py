@@ -21,8 +21,11 @@ class InterfaceGUI(Gtk.Window):
       - label com texto recebido após decodificação
     """
 
-    def __init__(self):
-        super().__init__(title="TR1 - Simulador Camada Física (1.1.1)")
+    def __init__(self, title, modulations, on_close_callback):
+        super().__init__(title=title)
+        super().__init__(title=title)
+        self.on_close_callback = on_close_callback  # Armazena a função de callback
+        self.connect("destroy", self.on_window_destroy)
         self.set_default_size(900, 600)
         self.set_border_width(8)
 
@@ -41,40 +44,36 @@ class InterfaceGUI(Gtk.Window):
         self.entry_text.set_text("Caio teste msg 123")
         grid.attach(self.entry_text, 1, 0, 3, 1)
 
-        # Modulação
+        # MODIFICAÇÃO: Popula o ComboBox com a lista fornecida
         lbl_mod = Gtk.Label(label="Modulação:")
         grid.attach(lbl_mod, 0, 1, 1, 1)
         self.combo_mod = Gtk.ComboBoxText()
-        self.combo_mod.append_text("NRZ-Polar")
-        self.combo_mod.append_text("Manchester")
-        self.combo_mod.append_text("Bipolar (AMI)")
+        for mod in modulations:
+            self.combo_mod.append_text(mod)
         self.combo_mod.set_active(0)
+        # Se houver apenas uma opção, desativa a caixa de seleção
+        if len(modulations) == 1:
+            self.combo_mod.set_sensitive(False)
         grid.attach(self.combo_mod, 1, 1, 1, 1)
 
         # Samples per bit
         lbl_spb = Gtk.Label(label="Samples/bit:")
         grid.attach(lbl_spb, 2, 1, 1, 1)
-        self.spin_spb = Gtk.SpinButton()
-        self.spin_spb.set_range(4, 1000)
-        self.spin_spb.set_increments(1, 10)
-        self.spin_spb.set_value(50)
+        self.spin_spb = Gtk.SpinButton.new_with_range(4, 1000, 1)
+        self.spin_spb.set_value(50)  # O valor padrão ainda é 50 aqui
         grid.attach(self.spin_spb, 3, 1, 1, 1)
 
         # Amplitude V
         lbl_V = Gtk.Label(label="Amplitude V:")
         grid.attach(lbl_V, 0, 2, 1, 1)
-        self.spin_V = Gtk.SpinButton()
-        self.spin_V.set_range(0.1, 5.0)
-        self.spin_V.set_increments(0.1, 0.5)
+        self.spin_V = Gtk.SpinButton.new_with_range(0.1, 5.0, 0.1)
         self.spin_V.set_value(1.0)
         grid.attach(self.spin_V, 1, 2, 1, 1)
 
         # SNR
         lbl_snr = Gtk.Label(label="SNR (dB, 0 => sem ruído):")
         grid.attach(lbl_snr, 2, 2, 1, 1)
-        self.spin_snr = Gtk.SpinButton()
-        self.spin_snr.set_range(0, 60)
-        self.spin_snr.set_increments(1,5)
+        self.spin_snr = Gtk.SpinButton.new_with_range(0, 60, 1)
         self.spin_snr.set_value(0)
         grid.attach(self.spin_snr, 3, 2, 1, 1)
 
@@ -184,8 +183,11 @@ class InterfaceGUI(Gtk.Window):
         else:
             self.lbl_bits_rx.set_text("Bits RX: -")
 
+    def on_window_destroy(self, widget):
+
+        if self.on_close_callback:
+            self.on_close_callback()
 
     def show(self):
-        self.connect("destroy", Gtk.main_quit)
+
         self.show_all()
-        Gtk.main()

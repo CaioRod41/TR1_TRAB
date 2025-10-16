@@ -27,6 +27,7 @@ class CamadaFisica:
         # se precisar usar tempo absoluto, assumimos Tb = 1.0 por símbolo para simplicidade
         self.Tb = 1.0
         self.fs = fs if fs is not None else self.samples_per_bit / self.Tb
+        self.fc = 10.0 / self.Tb
         
         # -1 significa que o próximo '1' deve ser +1 (alterna de -1 para 1).
         self.last_polarity = -1 
@@ -56,7 +57,7 @@ class CamadaFisica:
         return bytes(out)
 
     # -------------------------
-    # Codificadores
+    # Codificadores (Ex 1.1.1)
     # -------------------------
     def nrz_polar(self, bits):
         """NRZ-Polar: 1 -> +V ; 0 -> -V"""
@@ -173,3 +174,33 @@ class CamadaFisica:
     
 
     #--------------------------------------FIM DA 1.1.1-------------------------------------------------
+
+    # -------------------------
+    # Modulador (Ex 1.1.2)
+    # -------------------------
+    def ask(self, bits):
+        s_per_bit = self.samples_per_bit
+        t_bit = np.arange(s_per_bit) / self.fs
+        carrier = self.V * np.sin(2 * np.pi * self.fc * t_bit)
+
+        waveform = np.array([], dtype=float)
+        zero_signal = np.zeros(s_per_bit)
+
+        for b in bits:
+            if b == 1:
+                waveform = np.append(waveform, carrier)
+            else:
+                waveform = np.append(waveform, zero_signal)
+
+        t = np.arange(len(waveform)) / self.fs
+        return t, waveform
+    def decode_ask(self, waveform):
+        s = self.samples_per_bit
+        nb = len(waveform) // s
+        threshold = (self.V ** 2) / 4.0  # Limiar baseado em 1/4 da potência
+        bits = []
+        for i in range(nb):
+            chunk = waveform[i * s:(i + 1) * s]
+            power = np.mean(chunk ** 2)
+            bits.append(1 if power > threshold else 0)
+        return bits

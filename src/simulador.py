@@ -39,8 +39,16 @@ def bits_to_text(bits):
 # ----------------------------
 # Função para o exercício 1.1.1
 # ----------------------------
-def run_exercicio_111():
-    gui = InterfaceGUI()
+def run_exercicio_111(menu_window):
+
+    def on_sim_close():
+        menu_window.show()
+
+    gui = InterfaceGUI(
+        title="TR1 - 1.1.1 - Codificação de Linha",
+        modulations=["NRZ-Polar", "Manchester", "Bipolar (AMI)"],
+        on_close_callback=on_sim_close
+    )
 
     def tx_callback(params):
         text = params["text"]
@@ -77,16 +85,61 @@ def run_exercicio_111():
     gui.show()
 
 # ----------------------------
-# Callback do menu principal
+# NOVA FUNÇÃO para o exercício 1.1.2
 # ----------------------------
-def on_select_exercicio(ex):
-    Gtk.main_quit()
+def run_exercicio_112(menu_window):
+
+    def on_sim_close():
+        menu_window.show()
+
+    gui = InterfaceGUI(
+        title="TR1 - 1.1.2 - Modulação ASK",
+        modulations=["ASK"],
+        on_close_callback=on_sim_close
+    )
+
+    def tx_callback(params):
+        text = params["text"]
+        spb = int(params["samples_per_bit"])
+        V = float(params["V"])
+        snr_db = float(params["snr_db"])
+
+        cf = CamadaFisica(samples_per_bit=spb, V=V)
+        bits_tx = text_to_bits(text)
+        if not bits_tx: return {}
+
+        # Modulação ASK
+        t_tx, s_tx = cf.ask(bits_tx)
+
+        # Canal (adição de ruído)
+        s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else np.copy(s_tx)
+
+        # Demodulação ASK
+        bits_rx = cf.decode_ask(s_rx)
+
+        text_rx = bits_to_text(bits_rx)
+        return {"t_tx": t_tx, "s_tx": s_tx, "t_rx": t_tx, "s_rx": s_rx,
+                "bits_tx": bits_tx, "bits_rx": bits_rx, "text_rx": text_rx}
+
+    gui.set_tx_callback(tx_callback)
+    gui.show()
+
+# ----------------------------
+# Callback do menu principal ATUALIZADO
+# ----------------------------
+
+# A função agora aceita a janela do menu como um argumento
+def on_select_exercicio(ex, menu_window):
+    # Esconde a janela do menu em vez de fechar o loop do programa
+    menu_window.hide()
+
     if ex == "1.1.1":
-        run_exercicio_111()
+        run_exercicio_111(menu_window)
     elif ex == "1.1.2":
-        print("Exercício 1.1.2 em desenvolvimento...")
+        run_exercicio_112(menu_window)
     elif ex == "2.1.1":
         print("Exercício 2.1.1 em desenvolvimento...")
+        Gtk.main_quit()
 
 def main():
     menu = MainWindow(on_select_exercicio)
