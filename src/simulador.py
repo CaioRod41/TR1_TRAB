@@ -93,14 +93,15 @@ def run_exercicio_112(menu_window):
         menu_window.show()
 
     gui = InterfaceGUI(
-        title="TR1 - 1.1.2 - Modulação ASK",
-        modulations=["ASK"],
+        title="1.1.2 - Codificação (Camada Física)",
+        modulations=["ASK", "FSK"],
         on_close_callback=on_sim_close
     )
 
     def tx_callback(params):
         text = params["text"]
         spb = int(params["samples_per_bit"])
+        modulation = params["modulation"]
         V = float(params["V"])
         snr_db = float(params["snr_db"])
 
@@ -108,14 +109,18 @@ def run_exercicio_112(menu_window):
         bits_tx = text_to_bits(text)
         if not bits_tx: return {}
 
-        # Modulação ASK
-        t_tx, s_tx = cf.ask(bits_tx)
+        if modulation == "ASK":
+            t_tx, s_tx = cf.ask(bits_tx)
+            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else np.copy(s_tx)
+            bits_rx = cf.decode_ask(s_rx)
 
-        # Canal (adição de ruído)
-        s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else np.copy(s_tx)
+        elif modulation == "FSK":
+            t_tx, s_tx = cf.fsk(bits_tx)
+            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else np.copy(s_tx)
+            bits_rx = cf.decode_fsk(s_rx)
 
-        # Demodulação ASK
-        bits_rx = cf.decode_ask(s_rx)
+        else:  # Fallback
+            t_tx, s_tx, s_rx, bits_rx = None, None, None, None
 
         text_rx = bits_to_text(bits_rx)
         return {"t_tx": t_tx, "s_tx": s_tx, "t_rx": t_tx, "s_rx": s_rx,

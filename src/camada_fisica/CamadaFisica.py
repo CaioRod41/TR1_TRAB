@@ -28,6 +28,9 @@ class CamadaFisica:
         self.Tb = 1.0
         self.fs = fs if fs is not None else self.samples_per_bit / self.Tb
         self.fc = 10.0 / self.Tb
+
+        self.f1_fsk = 2.0 / self.Tb  # Frequência para bit '1' (ex: 2 Hz)
+        self.f2_fsk = 1.0 / self.Tb  # Frequência para bit '0' (ex: 1 Hz)
         
         # -1 significa que o próximo '1' deve ser +1 (alterna de -1 para 1).
         self.last_polarity = -1 
@@ -176,7 +179,7 @@ class CamadaFisica:
     #--------------------------------------FIM DA 1.1.1-------------------------------------------------
 
     # -------------------------
-    # Modulador (Ex 1.1.2)
+    # Modulador (Ex 1.1.2) ASK
     # -------------------------
     def ask(self, bits):
         s_per_bit = self.samples_per_bit
@@ -203,4 +206,61 @@ class CamadaFisica:
             chunk = waveform[i * s:(i + 1) * s]
             power = np.mean(chunk ** 2)
             bits.append(1 if power > threshold else 0)
+        return bits
+
+    # -------------------------
+    # Modulador (Ex 1.1.2) FSK
+    # -------------------------
+    def fsk(self, bits):
+        """Modulação FSK, baseada na imagem (reinicia a fase a cada bit)"""
+        s_per_bit = self.samples_per_bit
+        t_bit = np.arange(s_per_bit) / self.fs
+
+        # Pré-calcula a portadora para bit '1' (freq f1)
+        carrier_1 = self.V * np.sin(2 * np.pi * self.f1_fsk * t_bit)
+
+        # Pré-calcula a portadora para bit '0' (freq f2)
+        carrier_0 = self.V * np.sin(2 * np.pi * self.f2_fsk * t_bit)
+
+        waveform = np.array([], dtype=float)
+
+        # Constrói a forma de onda bit a bit
+        for b in bits:
+            if b == 1:
+                waveform = np.append(waveform, carrier_1)
+            else:
+                waveform = np.append(waveform, carrier_0)
+
+        t = np.arange(len(waveform)) / self.fs
+        return t, waveform
+
+    def decode_fsk(self, waveform):
+        """Decodificador FSK não-coerente (baseado em energia)"""
+        s = self.samples_per_bit
+        nb = len(waveform) // s
+        bits = []
+
+        # Cria vetores de tempo e referências (seno/cosseno) uma vez
+        t_bit = np.arange(s) / self.fs
+        ref_sin_f1 = np.sin(2 * np.pi * self.f1_fsk * t_bit)
+        ref_cos_f1 = np.cos(2 * np.pi * self.f1_fsk * t_bit)
+        ref_sin_f2 = np.sin(2 * np.pi * self.f2_fsk * t_bit)
+        ref_cos_f2 = np.cos(2 * np.pi * self.f2_fsk * t_bit)
+
+        for i in range(nb):
+            chunk = waveform[i * s:(i + 1) * s]
+
+            # Calcula a energia na frequência f1
+            corr_sin_f1 = np.sum(chunk * ref_sin_f1)
+            corr_cos_f1 = np.sum(chunk * ref_cos_f1)
+            energy_f1 = corr_sin_f1 ** 2 + corr_cos_f1 ** 2
+
+            # Calcula a energia na frequência f2
+            corr_sin_f2 = np.sum(chunk * ref_sin_f2)
+            corr_cos_f2 = np.sum(chunk * ref_cos_f2)
+            energy_f2 = corr_sin_f2 ** 2 + corr_cos_f2 ** 2
+
+            # Decide o bit com base na maior energia
+            bits.append(1 if energy_f1 > energy_f2 else 0)
+
         return bits
