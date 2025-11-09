@@ -1,5 +1,6 @@
 # src/camada_fisica/CamadaFisica.py
 import numpy as np
+from math import sqrt
 
 class CamadaFisica:
 
@@ -264,3 +265,43 @@ class CamadaFisica:
             bits.append(1 if energy_f1 > energy_f2 else 0)
 
         return bits
+
+    def bits_to_symbols(self, bits):
+        if len(bits)%2 != 0:
+            bits.append(0)
+
+        simbolos = []
+        for i in range(0, len(bits), 2):
+            simbolo = (bits[i], bits[i+1])
+            simbolos.append(simbolo)
+
+        return simbolos
+
+    def qpsk(self, bits):
+        simbolos = self.bits_to_symbols(bits)
+        samples_per_symbol = 2 * self.samples_per_bit
+
+        waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
+
+        mapping = {
+            (0, 0): (self.V, self.V),
+            (0, 1): (-self.V, self.V),
+            (1, 1): (-self.V, -self.V),
+            (1, 0): (self.V, -self.V)
+        }
+
+        for i, simbolo in enumerate(simbolos):
+            inicio = i * samples_per_symbol
+            fim = inicio + samples_per_symbol
+
+            t_sim = np.arange(inicio, fim) / self.fs
+
+            portadora_I = np.sqrt(2 / self.Tb) * np.cos(2 * np.pi * self.fc * t_sim)
+            portadora_Q = np.sqrt(2 / self.Tb) * np.sin(2 * np.pi * self.fc * t_sim)
+
+            I, Q = mapping[simbolo]
+            waveform[inicio:fim] = (I * portadora_I) + (Q * portadora_Q)
+
+        t = np.arange(len(waveform)) / self.fs
+
+        return t, waveform

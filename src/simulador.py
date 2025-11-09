@@ -94,7 +94,7 @@ def run_exercicio_112(menu_window):
 
     gui = InterfaceGUI(
         title="1.1.2 - Codificação (Camada Física)",
-        modulations=["ASK", "FSK"],
+        modulations=["ASK", "FSK", "QPSK"],
         on_close_callback=on_sim_close
     )
 
@@ -118,6 +118,11 @@ def run_exercicio_112(menu_window):
             t_tx, s_tx = cf.fsk(bits_tx)
             s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else np.copy(s_tx)
             bits_rx = cf.decode_fsk(s_rx)
+
+        elif modulation == "QPSK":
+            t_tx, s_tx = cf.qpsk(bits_tx)
+            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else np.copy(s_tx)
+            bits_rx = cf.decode_qpsk(s_rx)
 
         else:  # Fallback
             t_tx, s_tx, s_rx, bits_rx = None, None, None, None
