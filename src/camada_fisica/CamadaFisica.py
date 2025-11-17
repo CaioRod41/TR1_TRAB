@@ -1,6 +1,5 @@
 # src/camada_fisica/CamadaFisica.py
 import numpy as np
-from math import sqrt
 
 class CamadaFisica:
 
@@ -32,7 +31,7 @@ class CamadaFisica:
 
         self.f1_fsk = 2.0 / self.Tb  # Frequência para bit '1' (ex: 2 Hz)
         self.f2_fsk = 1.0 / self.Tb  # Frequência para bit '0' (ex: 1 Hz)
-        
+
         # -1 significa que o próximo '1' deve ser +1 (alterna de -1 para 1).
         self.last_polarity = -1 
         
@@ -266,23 +265,39 @@ class CamadaFisica:
 
         return bits
 
-    def bits_to_symbols(self, bits):
-        if len(bits)%2 != 0:
-            bits.append(0)
+    # -------------------------
+    # Modulador (Ex 1.1.2) QPSK
+    # -------------------------
+    ''' Tavez seja bom calcular BER'''
+    def bits_to_symbols(self, bits, modulation='QPSK'):
+        ''' Função para agrupar bits em síbolos (2 bits p/ QPSK e 4 bits p/ 16-QAM'''
+        if modulation == 'QPSK':
+            bits_per_symbol = 2
+        else:
+            bits_per_symbol = 4
+
+        # Padding
+        if len(bits) % bits_per_symbol != 0:
+            pad = bits_per_symbol - (len(bits) % bits_per_symbol)
+            bits = bits + [0] * pad
 
         simbolos = []
-        for i in range(0, len(bits), 2):
-            simbolo = (bits[i], bits[i+1])
+        for i in range(0, len(bits), bits_per_symbol):
+            simbolo = tuple(bits[i:i + bits_per_symbol])
             simbolos.append(simbolo)
 
         return simbolos
 
     def qpsk(self, bits):
-        simbolos = self.bits_to_symbols(bits)
+        simbolos = self.bits_to_symbols(bits, 'QPSK')
         samples_per_symbol = 2 * self.samples_per_bit
+        Ts = 2 * self.Tb  # Duração do símbolo
+        fs = self.fs
+        fc = 1/Ts # Nyquist
 
         waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
 
+        # Gray mapping
         mapping = {
             (0, 0): (self.V, self.V),
             (0, 1): (-self.V, self.V),
@@ -290,18 +305,152 @@ class CamadaFisica:
             (1, 0): (self.V, -self.V)
         }
 
-        for i, simbolo in enumerate(simbolos):
+        for i, simb in enumerate(simbolos):
+            t_local = np.arange(0, samples_per_symbol) / fs
+
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+
+            aI, aQ = mapping[simb]
+
+            s = aI * phi_I + aQ * phi_Q
+
             inicio = i * samples_per_symbol
             fim = inicio + samples_per_symbol
+            waveform[inicio:fim] = s
 
-            t_sim = np.arange(inicio, fim) / self.fs
-
-            portadora_I = np.sqrt(2 / self.Tb) * np.cos(2 * np.pi * self.fc * t_sim)
-            portadora_Q = np.sqrt(2 / self.Tb) * np.sin(2 * np.pi * self.fc * t_sim)
-
-            I, Q = mapping[simbolo]
-            waveform[inicio:fim] = (I * portadora_I) + (Q * portadora_Q)
-
-        t = np.arange(len(waveform)) / self.fs
+        t = np.arange(len(waveform)) / fs
 
         return t, waveform
+
+    def decode_qpsk(self, waveform):
+        samples_per_symbol = 2 * self.samples_per_bit
+        Ts = 2 * self.Tb
+        fs = self.fs
+        fc= 1/Ts
+
+        num_symbols = len(waveform) // samples_per_symbol
+        bits = []
+
+        for i in range(num_symbols):
+            inicio = i * samples_per_symbol
+            fim = inicio + samples_per_symbol
+            simbolo = waveform[inicio:fim]
+
+            t_local = np.arange(0, samples_per_symbol) / fs
+
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+
+            # Correlações (projeções)
+            corr_I = np.sum(simbolo * phi_I)
+            corr_Q = np.sum(simbolo * phi_Q)
+
+            # Normalização
+            I_hat = corr_I / fs
+            Q_hat = corr_Q / fs
+
+            # Gray mapping
+            if I_hat > 0 and Q_hat > 0:
+                bits.extend([0, 0])
+            elif I_hat < 0 and Q_hat > 0:
+                bits.extend([0, 1])
+            elif I_hat < 0 and Q_hat < 0:
+                bits.extend([1, 1])
+            else:  # I_hat > 0 and Q_hat < 0
+                bits.extend([1, 0])
+
+        return bits
+
+    # -------------------------
+    # Modulador (Ex 1.1.2) 16-QAM
+    # -------------------------
+    def st_qam(self, bits):
+        simbolos = self.bits_to_symbols(bits, '16-QAM')
+        samples_per_symbol = 4 * self.samples_per_bit
+        Ts = 4 * self.Tb
+        fs = self.fs
+        fc = 1 / Ts
+
+        waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
+
+        # Níveis normalizados
+        a3 = (1 / np.sqrt(2)) * self.V
+        a1 = (1 / (3 * np.sqrt(2))) * self.V
+        levels = np.array([-a3, -a1, +a1, +a3])
+
+        # Gray mapping
+        gray_map = np.array([0, 1, 3, 2])
+
+        for i, simb in enumerate(simbolos):
+            # Converte tupla de 4 bits para inteiro
+            simb_int = (simb[0] << 3) + (simb[1] << 2) + (simb[2] << 1) + simb[3]
+
+            # Dois bits MSB → eixo I, dois bits LSB → eixo Q
+            I_idx = gray_map[simb_int >> 2]
+            Q_idx = gray_map[simb_int & 0b11]
+
+            aI, aQ = levels[I_idx], levels[Q_idx]
+
+            t_local = np.arange(0, samples_per_symbol) / fs
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+
+            s = aI * phi_I + aQ * phi_Q
+
+            ini = i * samples_per_symbol
+            fim = ini + samples_per_symbol
+            waveform[ini:fim] = s
+
+        t = np.arange(len(waveform)) / fs
+
+        return t, waveform
+
+    def decode_st_qam(self, waveform):
+        samples_per_symbol = 4 * self.samples_per_bit
+        Ts = 4 * self.Tb
+        fs = self.fs
+        fc = 1 / Ts
+
+        num_symbols = len(waveform) // samples_per_symbol
+        bits = []
+
+        # Níveis normalizados
+        a3 = (1 / np.sqrt(2)) * self.V
+        a1 = (1 / (3 * np.sqrt(2))) * self.V
+        levels = np.array([-a3, -a1, +a1, +a3])
+
+        # Gray mapping
+        gray_map = np.array([0, 1, 3, 2])
+        gray_map_inv = np.argsort(gray_map)  # Índice
+
+        for i in range(num_symbols):
+            ini = i * samples_per_symbol
+            fim = ini + samples_per_symbol
+            simbolo = waveform[ini:fim]
+
+            t_local = np.arange(0, samples_per_symbol) / fs
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+
+            corr_I = np.sum(simbolo * phi_I)
+            corr_Q = np.sum(simbolo * phi_Q)
+            E = np.sum(phi_I ** 2)
+
+            I_hat = corr_I / E
+            Q_hat = corr_Q / E
+
+            # --- decisão pelo nível mais próximo ---
+            I_idx = np.argmin(np.abs(I_hat - levels))
+            Q_idx = np.argmin(np.abs(Q_hat - levels))
+
+            # --- converte índice para Gray code (2 bits) ---
+            I_bits_idx = gray_map_inv[I_idx]
+            Q_bits_idx = gray_map_inv[Q_idx]
+
+            I_bits = (I_bits_idx >> 1, I_bits_idx & 1)
+            Q_bits = (Q_bits_idx >> 1, Q_bits_idx & 1)
+
+            bits.extend(I_bits + Q_bits)
+
+        return bits
