@@ -79,7 +79,7 @@ class CamadaFisica:
         """
         s_per_bit = self.samples_per_bit
         half = s_per_bit // 2
-        # If samples_per_bit is odd, make second half one sample longer
+     
         waveform = []
         for b in bits:
             if b == 1:
@@ -103,7 +103,7 @@ class CamadaFisica:
         
         last_polarity = -1
                           
-        # OPÇÃO A (Se o chamador (simulador) cria nova CamadaFisica a cada Tx):
+      
         last_polarity = -1 # Assim o primeiro '1' é sempre +V.
 
         for i, b in enumerate(bits):

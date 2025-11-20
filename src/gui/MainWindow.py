@@ -28,12 +28,14 @@ class MainWindow(Gtk.Window):
         self.btn_112.connect("clicked", lambda b: on_select_callback("1.1.2", self))
         vbox.pack_start(self.btn_112, False, False, 0)
 
-        self.btn_211 = Gtk.Button(label="2.1.1 - Em desenvolvimento")
-        self.btn_211.connect("clicked", lambda b: on_select_callback("2.1.1", self))
-        vbox.pack_start(self.btn_211, False, False, 0)
+        self.btn_hamming = Gtk.Button(label="1.5 - Hamming (7,4)")
+        self.btn_hamming.connect("clicked", lambda b: on_select_callback("hamming", self))
+        vbox.pack_start(self.btn_hamming, False, False, 0)
+
+
+
 
         self.connect("destroy", Gtk.main_quit)
 
     def show(self):
         self.show_all()
-        Gtk.main()
