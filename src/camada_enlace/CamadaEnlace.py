@@ -60,3 +60,150 @@ class CamadaEnlace:
 
         return decoded
 #--------------------------------------FIM DA 1.5-------------------------------------------------
+
+# --------------------------------1.3 - ENQUADRAMENTO (Framing)-----------------------------------
+
+      # --- 1. Contagem de Caracteres ---
+
+
+    def enquadramento_contagem_caracteres(self, bits_dados):
+        # Adiciona 1 byte de cabeçalho indicando o tamanho total (header + payload)
+        bytes_dados = self._bits_to_bytes(bits_dados)
+        quadro = []
+        tamanho_max_payload = 255  # Limite de 1 byte
+
+        # Cabeçalho indica o número de bytes no quadro (incluindo ele mesmo)
+        count = len(bytes_dados) + 1
+        quadro.append(count)
+        quadro.extend(bytes_dados)
+
+        return self._bytes_to_bits(quadro)
+
+
+    def desenquadramento_contagem_caracteres(self, bits_quadro):
+        bytes_quadro = self._bits_to_bytes(bits_quadro)
+        if not bytes_quadro:
+            return []
+
+        # Lê o primeiro byte para saber o tamanho
+        count = bytes_quadro[0]
+        # Retorna apenas o payload (remove o count)
+        return self._bytes_to_bits(bytes_quadro[1:count])
+
+        # --- 2. Byte Stuffing (Inserção de Bytes) ---
+
+
+    def enquadramento_flag_bytes(self, bits_dados):
+        FLAG = 0x7E  # '~'
+        ESC = 0x7D  # '}'
+
+        bytes_dados = self._bits_to_bytes(bits_dados)
+        quadro = [FLAG]
+
+        for b in bytes_dados:
+            if b == FLAG or b == ESC:
+                quadro.append(ESC)
+                quadro.append(b)
+            else:
+                quadro.append(b)
+
+        quadro.append(FLAG)
+        return self._bytes_to_bits(quadro)
+
+
+    def desenquadramento_flag_bytes(self, bits_quadro):
+        FLAG = 0x7E
+        ESC = 0x7D
+        bytes_quadro = self._bits_to_bytes(bits_quadro)
+        dados = []
+
+        ignore_next = False
+        payload = bytes_quadro[1:-1]
+
+        i = 0
+        while i < len(payload):
+            b = payload[i]
+            if b == ESC:
+                i += 1
+                if i < len(payload):
+                    dados.append(payload[i])
+            else:
+                dados.append(b)
+            i += 1
+
+        return self._bytes_to_bits(dados)
+
+        # --- 3. Bit Stuffing (Inserção de Bits) ---
+
+
+    def enquadramento_flag_bits(self, bits_dados):
+        # Flag: 01111110. Regra: Se aparecerem 5 '1's seguidos nos dados, insere um '0'.
+        saida = []
+        conta_um = 0
+
+        # Adiciona Flag de início
+        flag = [0, 1, 1, 1, 1, 1, 1, 0]
+        saida.extend(flag)
+
+        for b in bits_dados:
+            saida.append(b)
+            if b == 1:
+                conta_um += 1
+                if conta_um == 5:
+                    saida.append(0)  # Stuffing
+                    conta_um = 0
+            else:
+                conta_um = 0
+
+        # Adiciona Flag de fim
+        saida.extend(flag)
+        return saida
+
+
+    def desenquadramento_flag_bits(self, bits_quadro):
+        # Remove Flags (assumindo 8 bits no inicio e fim)
+        payload = bits_quadro[8:-8]
+        saida = []
+        conta_um = 0
+
+        i = 0
+        while i < len(payload):
+            b = payload[i]
+            saida.append(b)
+
+            if b == 1:
+                conta_um += 1
+                if conta_um == 5:
+                    # O próximo bit deve ser o '0' de stuffing, pulamos ele
+                    if i + 1 < len(payload) and payload[i + 1] == 0:
+                        i += 1  # Pula o 0 inserido
+                    conta_um = 0
+            else:
+                conta_um = 0
+            i += 1
+
+        return saida
+
+        # --- Helpers Auxiliares ---
+
+
+    def _bits_to_bytes(self, bits):
+        # Converte array de bits para lista de inteiros (bytes)
+        # (Você pode copiar a lógica do CamadaFisica.bytes_from_bits)
+        pad = (-len(bits)) % 8
+        bits = bits + [0] * pad
+        out = []
+        for i in range(0, len(bits), 8):
+            byte = 0
+            for j in range(8):
+                byte = (byte << 1) | bits[i + j]
+            out.append(byte)
+        return out
+
+
+    def _bytes_to_bits(self, bytes_list):
+        bits = []
+        for b in bytes_list:
+            for i in range(8):
+                bits.append((b >> (7 - i)) & 1)
+        return bits
