@@ -106,7 +106,7 @@ class InterfaceGUI(Gtk.Window):
         self.combo_det.append_text("Checksum")
         self.combo_det.append_text("CRC-32")
         self.combo_det.set_active(0)
-        grid.attach(self.combo_det, 1, 4, 1, 1)
+        grid.attach(self.combo_det, 1, 4, 3, 1)
 
 
         # Botão transmitir
