@@ -28,7 +28,6 @@ def text_to_bits(s: str):
             bits.append((byte >> (7 - i)) & 1)
     return bits
 
-
 def bits_to_text(bits):
     pad = (-len(bits)) % 8
     bits = bits + [0] * pad
@@ -53,7 +52,7 @@ def run_exercicio_111(menu_window):
         menu_window.show()
 
     gui = InterfaceGUI(
-        title="TR1 - 1.1.1 - Codificação de Linha",
+        title="1.1.1 - Modulação digital",
         modulations=["NRZ-Polar", "Manchester", "Bipolar (AMI)"],
         on_close_callback=on_close
     )
@@ -65,57 +64,93 @@ def run_exercicio_111(menu_window):
         V = params["V"]
         snr_db = params["snr_db"]
 
+        erro = False
+
+        # Pega o tipo de enquadramento escolhido na GUI
+        framing_type = params.get("framing", "Nenhum")
+
         cf = CamadaFisica(samples_per_bit=spb, V=V)
         enlace = CamadaEnlace()
 
+        # 1. Converte Texto -> Bits puros
         bits_tx = text_to_bits(text)
 
-        if len(bits_tx) == 0:
+        # 2. Aplica Enquadramento
+        # Se for "Nenhum", bits_para_transmitir é igual ao original
+        bits_para_transmitir = bits_tx
+
+        if framing_type == "Contagem de Caracteres":
+            bits_para_transmitir = enlace.enquadramento_contagem_caracteres(bits_tx)
+        elif framing_type == "FLAGS: Inserção de bytes":
+            bits_para_transmitir = enlace.enquadramento_flag_bytes(bits_tx)
+        elif framing_type == "FLAGS: Inserção de bits":
+            bits_para_transmitir = enlace.enquadramento_flag_bits(bits_tx)
+
+        if len(bits_para_transmitir) == 0:
             return {}
 
         # ----------- ENCODE -----------
         modo = params["error_detec"]
 
         if modo == "Paridade Par":
-            bits_tx = enlace.encode_paridade(bits_tx)
+            bits_para_transmitir = enlace.encode_paridade(bits_para_transmitir)
         elif modo == "Checksum":
-            bits_tx = enlace.encode_checksum(bits_tx)
+            bits_para_transmitir = enlace.encode_checksum(bits_para_transmitir)
         elif modo == "CRC-32":
-            bits_tx = enlace.encode_crc(bits_tx)
+            bits_para_transmitir = enlace.encode_crc(bits_para_transmitir)
 
         if modulation == "NRZ-Polar":
-            t_tx, s_tx = cf.nrz_polar(bits_tx)
-            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_nrz_polar(s_rx)
+            t_tx, s_tx = cf.nrz_polar(bits_para_transmitir)
+            bits_rx_encoded = cf.decode_nrz_polar(s_tx)
 
         elif modulation == "Manchester":
-            t_tx, s_tx = cf.manchester(bits_tx)
-            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_manchester(s_rx)
+            t_tx, s_tx = cf.manchester(bits_para_transmitir)
+            bits_rx_encoded = cf.decode_manchester(s_tx)
 
         elif modulation == "Bipolar (AMI)":
-            t_tx, s_tx = cf.bipolar_ami(bits_tx)
-            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_bipolar_ami(s_rx)
+            t_tx, s_tx = cf.bipolar_ami(bits_para_transmitir)
+            bits_rx_encoded = cf.decode_bipolar_ami(s_tx)
 
+        # Adiciona Ruído
+        s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
 
-        # ----------- DECODE -----------
+        # --- Receptor ---
+
+        # 4. Desenquadramento (Camada de Enlace RX)
+        # Começamos assumindo que o que chegou é o que vale
+        bits_desenquadrados = bits_rx_encoded
+
+        try:
+            if framing_type == "Contagem de Caracteres":
+                bits_desenquadrados = enlace.desenquadramento_contagem_caracteres(bits_rx_encoded)
+            elif framing_type == "FLAGS: Inserção de bytes":
+                bits_desenquadrados = enlace.desenquadramento_flag_bytes(bits_rx_encoded)
+            elif framing_type == "FLAGS: Inserção de bits":
+                bits_desenquadrados = enlace.desenquadramento_flag_bits(bits_rx_encoded)
+        except Exception as e:
+            print(f"Erro no desenquadramento: {e}")
+            bits_desenquadrados = []
+
+        # 5. Decode de detecção de erro
         if modo == "Paridade Par":
-            bits_rx, erro = enlace.decode_paridade(bits_rx)
+            payload, erro = enlace.decode_paridade(bits_desenquadrados)
         elif modo == "Checksum":
-            bits_rx, erro = enlace.decode_checksum(bits_rx)
+            payload, erro = enlace.decode_checksum(bits_desenquadrados)
         elif modo == "CRC-32":
-            bits_rx, erro = enlace.decode_crc(bits_rx)
+            payload, erro = enlace.decode_crc(bits_desenquadrados)
 
-        text_rx = bits_to_text(bits_rx)
+        text_rx = bits_to_text(payload)
 
         return {
             "t_tx": t_tx, "s_tx": s_tx,
             "t_rx": t_tx, "s_rx": s_rx,
-            "bits_tx": bits_tx, "bits_rx": bits_rx,
+            # Na GUI, queremos ver os bits JÁ ENQUADRADOS no campo "Bits TX"
+            "bits_tx": bits_para_transmitir,
+            # E os bits brutos que chegaram antes de desenquadrar (ou depois, depende do que vc quer ver)
+            # Geralmente mostra-se o que chegou na física:
+            "bits_rx": bits_rx_encoded,
             "text_rx": text_rx,
             "erro": erro
-
         }
 
     gui.set_tx_callback(tx_callback)
@@ -143,10 +178,31 @@ def run_exercicio_112(menu_window):
         V = params["V"]
         snr_db = params["snr_db"]
 
+        # 1. Pega o enquadramento escolhido
+        framing_type = params.get("framing", "Nenhum")
+
         cf = CamadaFisica(samples_per_bit=spb, V=V)
         enlace = CamadaEnlace()
 
+        # 2. Texto -> Bits Brutos
         bits_tx = text_to_bits(text)
+
+        # 3. Aplica Enquadramento (bits_tx -> bits_para_transmitir)
+        bits_para_transmitir = bits_tx  # Default
+
+        if framing_type == "Contagem de Caracteres":
+            bits_para_transmitir = enlace.enquadramento_contagem_caracteres(bits_tx)
+        elif framing_type == "FLAGS: Inserção de bytes":
+            bits_para_transmitir = enlace.enquadramento_flag_bytes(bits_tx)
+        elif framing_type == "FLAGS: Inserção de bits":
+            bits_para_transmitir = enlace.enquadramento_flag_bits(bits_tx)
+
+        # Se não houver bits para transmitir (msg vazia), retorna vazio
+        if not bits_para_transmitir:
+            return {}
+
+        # 4. Modulação (Usa os bits ENQUADRADOS)
+        # 'bits_rx_encoded' são os bits demodulados, ainda contendo o quadro (headers/stuffing)
 
         modo = params["error_detec"]
         if modo == "Paridade Par":
@@ -157,57 +213,71 @@ def run_exercicio_112(menu_window):
             bits_tx = enlace.encode_crc(bits_tx)
 
         if modulation == "ASK":
-            t_tx, s_tx = cf.ask(bits_tx)
+            t_tx, s_tx = cf.ask(bits_para_transmitir)
             s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_ask(s_rx)
+            bits_rx_encoded = cf.decode_ask(s_rx)
 
         elif modulation == "FSK":
-            t_tx, s_tx = cf.fsk(bits_tx)
+            t_tx, s_tx = cf.fsk(bits_para_transmitir)
             s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_fsk(s_rx)
+            bits_rx_encoded = cf.decode_fsk(s_rx)
 
         elif modulation == "QPSK":
-            t_tx, s_tx = cf.qpsk(bits_tx)
+            t_tx, s_tx = cf.qpsk(bits_para_transmitir)
             s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_qpsk(s_rx)
+            bits_rx_encoded = cf.decode_qpsk(s_rx)
 
         elif modulation == "16-QAM":
-            while len(bits_tx) % 4 != 0:
-                bits_tx.append(0)
-            t_tx, s_tx = cf.st_qam(bits_tx)
+            while len(bits_para_transmitir) % 4 != 0:
+                bits_para_transmitir.append(0)
+            t_tx, s_tx = cf.st_qam(bits_para_transmitir)
             s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
-            bits_rx = cf.decode_st_qam(s_rx)
+            bits_rx_encoded = cf.decode_st_qam(s_rx)
+
+        # 5. Desenquadramento (bits_rx_encoded -> bits_desenquadrados)
+        bits_desenquadrados = bits_rx_encoded  # Default
+
+        try:
+            if framing_type == "Contagem de Caracteres":
+                bits_desenquadrados = enlace.desenquadramento_contagem_caracteres(bits_rx_encoded)
+            elif framing_type == "FLAGS: Inserção de bytes":
+                bits_desenquadrados = enlace.desenquadramento_flag_bytes(bits_rx_encoded)
+            elif framing_type == "FLAGS: Inserção de bits":
+                bits_desenquadrados = enlace.desenquadramento_flag_bits(bits_rx_encoded)
+        except Exception as e:
+            print(f"Erro no desenquadramento (1.1.2): {e}")
+            bits_desenquadrados = []
 
         if modo == "Paridade Par":
-            if len(bits_rx) < 1:
+            if len(bits_desenquadrados) < 1:
                 payload, erro = [], True
             else:
-                payload, erro = enlace.decode_paridade(bits_rx)
+                payload, erro = enlace.decode_paridade(bits_desenquadrados)
         elif modo == "Checksum":
-            if len(bits_rx) < 3:
+            if len(bits_desenquadrados) < 3:
                 payload, erro = [], True
             else:
-                payload, erro = enlace.decode_checksum(bits_rx)
+                payload, erro = enlace.decode_checksum(bits_desenquadrados)
         elif modo == "CRC-32":
-            if len(bits_rx) < 32:
+            if len(bits_desenquadrados) < 32:
                 payload, erro = [], True
             else:
-                payload, erro = enlace.decode_crc(bits_rx)
-        else:
-            payload, erro = bits_rx, False
+                payload, erro = enlace.decode_crc(bits_desenquadrados)
 
         text_rx = bits_to_text(payload)
 
         return {
             "t_tx": t_tx, "s_tx": s_tx,
             "t_rx": t_tx, "s_rx": s_rx,
-            "bits_tx": bits_tx, "bits_rx": bits_rx,
+            "bits_tx": bits_para_transmitir,
+            "bits_rx": bits_rx_encoded,
             "text_rx": text_rx,
             "erro": erro
         }
 
     gui.set_tx_callback(tx_callback)
     gui.show()
+
 
 # ----------------------------
 # Exercício 1.5 — Hamming (7,4)

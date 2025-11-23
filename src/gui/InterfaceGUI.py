@@ -32,11 +32,12 @@ class InterfaceGUI(Gtk.Window):
         self.add(vbox)
 
         # --------------------------------------------------------
-        # CONTROLES SUPERIORES
+        # CONTROLES SUPERIORES (GRID)
         # --------------------------------------------------------
         grid = Gtk.Grid(column_spacing=8, row_spacing=6)
         vbox.pack_start(grid, False, False, 0)
 
+        # --- LINHA 0: Texto ---
         lbl_in = Gtk.Label(label="Texto para transmitir:")
         grid.attach(lbl_in, 0, 0, 1, 1)
 
@@ -44,7 +45,8 @@ class InterfaceGUI(Gtk.Window):
         self.entry_text.set_text("Mensagem teste")
         grid.attach(self.entry_text, 1, 0, 3, 1)
 
-        # Modulação
+        # --- LINHA 1: Modulação e Samples ---
+        # Coluna 0, 1: Modulação
         lbl_mod = Gtk.Label(label="Modulação:")
         grid.attach(lbl_mod, 0, 1, 1, 1)
 
@@ -58,7 +60,7 @@ class InterfaceGUI(Gtk.Window):
 
         grid.attach(self.combo_mod, 1, 1, 1, 1)
 
-        # Samples per bit
+        # Coluna 2, 3: Samples/bit
         lbl_spb = Gtk.Label(label="Samples/bit:")
         grid.attach(lbl_spb, 2, 1, 1, 1)
 
@@ -66,7 +68,8 @@ class InterfaceGUI(Gtk.Window):
         self.spin_spb.set_value(50)
         grid.attach(self.spin_spb, 3, 1, 1, 1)
 
-        # Amplitude V
+        # --- LINHA 2: Amplitude e SNR ---
+        # Coluna 0, 1: Amplitude
         lbl_V = Gtk.Label(label="Amplitude V:")
         grid.attach(lbl_V, 0, 2, 1, 1)
 
@@ -74,7 +77,7 @@ class InterfaceGUI(Gtk.Window):
         self.spin_V.set_value(1.0)
         grid.attach(self.spin_V, 1, 2, 1, 1)
 
-        # SNR
+        # Coluna 2, 3: SNR
         lbl_snr = Gtk.Label(label="SNR (dB):")
         grid.attach(lbl_snr, 2, 2, 1, 1)
 
@@ -82,28 +85,42 @@ class InterfaceGUI(Gtk.Window):
         self.spin_snr.set_value(0)
         grid.attach(self.spin_snr, 3, 2, 1, 1)
 
+        # --- LINHA 3: Enquadramento (NOVO) ---
+        lbl_enq = Gtk.Label(label="Enquadramento:")
+        grid.attach(lbl_enq, 0, 3, 1, 1)
+
+        self.combo_enq = Gtk.ComboBoxText()
+        self.combo_enq.append_text("Nenhum")
+        self.combo_enq.append_text("Contagem de Caracteres")
+        self.combo_enq.append_text("FLAGS: Inserção de bytes")
+        self.combo_enq.append_text("FLAGS: Inserção de bits")
+        self.combo_enq.set_active(0)
+        grid.attach(self.combo_enq, 1, 3, 3, 1) # Ocupa 3 colunas para ficar largo
+
         # Detecção de Erro
         lbl_det = Gtk.Label(label="Detecção de Erro:")
-        grid.attach(lbl_det, 0, 3, 1, 1)
+        grid.attach(lbl_det, 0, 4, 1, 1)
 
         self.combo_det = Gtk.ComboBoxText()
         self.combo_det.append_text("Paridade Par")
         self.combo_det.append_text("Checksum")
         self.combo_det.append_text("CRC-32")
         self.combo_det.set_active(0)
-        grid.attach(self.combo_det, 1, 3, 1, 1)
+        grid.attach(self.combo_det, 1, 4, 1, 1)
 
 
         # Botão transmitir
         self.btn_tx = Gtk.Button(label="Transmitir")
         self.btn_tx.connect("clicked", self.on_transmit_clicked)
-        grid.attach(self.btn_tx, 0, 4, 1, 1)
+        grid.attach(self.btn_tx, 0, 5, 1, 1)
 
         # Label recebido
         self.lbl_received = Gtk.Label(label="Recebido: -")
-        grid.attach(self.lbl_received, 1, 4, 3, 1)
+        grid.attach(self.lbl_received, 1, 5, 3, 1)
 
-        # Labels de bits
+        # --------------------------------------------------------
+        # LABELS DE BITS E GRÁFICOS
+        # --------------------------------------------------------
         self.lbl_bits_tx = Gtk.Label(label="Bits TX: -")
         self.lbl_bits_tx.set_xalign(0)
         vbox.pack_start(self.lbl_bits_tx, False, False, 0)
@@ -143,6 +160,7 @@ class InterfaceGUI(Gtk.Window):
         params = {
             "text": self.entry_text.get_text(),
             "modulation": self.combo_mod.get_active_text(),
+            "framing": self.combo_enq.get_active_text(),
             "samples_per_bit": int(self.spin_spb.get_value()),
             "V": float(self.spin_V.get_value()),
             "snr_db": float(self.spin_snr.get_value()),
