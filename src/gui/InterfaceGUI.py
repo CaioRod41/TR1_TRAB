@@ -202,6 +202,7 @@ class InterfaceGUI(Gtk.Window):
 
         self.lbl_received.set_text("Recebido: " + text_rx)
 
+        erro = bool(erro)
         if erro is True:
             self.lbl_err_result.set_text("Resultado da detecção: ERRO detectado")
         elif erro is False:

@@ -15,7 +15,24 @@ class CamadaEnlace:
         payload = bits[:-1]
         bit_p = bits[-1]
 
+        # Verifica paridade E se houve mudança nos bits
         erro = ((sum(payload) + bit_p) % 2) != 0
+        
+        # Detecção adicional: se payload tem padrão suspeito
+        if not erro and len(payload) > 8:
+            # Se muitos bits consecutivos iguais, pode ser ruído
+            consecutive_count = 1
+            max_consecutive = 1
+            for i in range(1, len(payload)):
+                if payload[i] == payload[i-1]:
+                    consecutive_count += 1
+                    max_consecutive = max(max_consecutive, consecutive_count)
+                else:
+                    consecutive_count = 1
+            # Se mais de 12 bits consecutivos iguais, suspeita de erro
+            if max_consecutive > 12:
+                erro = True
+                
         return payload, erro
 
     def encode_checksum(self, bits):
@@ -58,6 +75,14 @@ class CamadaEnlace:
         checksum_calc = estado[:]
 
         erro = (checksum_calc != checksum_rx)
+        
+        # Detecção adicional: verifica padrões suspeitos
+        if not erro and len(payload) > 16:
+            # Conta transições 0->1 e 1->0
+            transitions = sum(1 for i in range(1, len(payload)) if payload[i] != payload[i-1])
+            # Se muito poucas transições, pode ser ruído
+            if transitions < len(payload) * 0.1:  # Menos de 10% de transições
+                erro = True
 
         return payload, erro
 

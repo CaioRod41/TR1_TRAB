@@ -142,7 +142,6 @@ class CamadaFisica:
             chunk = waveform[i*s:(i+1)*s]
             first_mean = np.mean(chunk[:half])
             second_mean = np.mean(chunk[half:])
- 
             bits.append(1 if first_mean > second_mean else 0)
         return bits
 
@@ -197,6 +196,7 @@ class CamadaFisica:
 
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
+
     def decode_ask(self, waveform):
         s = self.samples_per_bit
         nb = len(waveform) // s
