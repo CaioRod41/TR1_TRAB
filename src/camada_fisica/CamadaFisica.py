@@ -448,8 +448,9 @@ class CamadaFisica:
             I_bits_idx = gray_map_inv[I_idx]
             Q_bits_idx = gray_map_inv[Q_idx]
 
-            I_bits = (I_bits_idx >> 1, I_bits_idx & 1)
-            Q_bits = (Q_bits_idx >> 1, Q_bits_idx & 1)
+            # --- pega os bits ---
+            I_bits = ((I_bits_idx >> 1) & 1, I_bits_idx & 1)
+            Q_bits = ((Q_bits_idx >> 1) & 1, Q_bits_idx & 1)
 
             bits.extend(I_bits + Q_bits)
 

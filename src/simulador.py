@@ -2,6 +2,8 @@
 import sys
 from pathlib import Path
 
+from camada_enlace.CamadaEnlace import CamadaEnlace
+
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "camada_fisica"))
 sys.path.insert(0, str(ROOT / "gui"))
@@ -64,30 +66,56 @@ def run_exercicio_111(menu_window):
         snr_db = params["snr_db"]
 
         cf = CamadaFisica(samples_per_bit=spb, V=V)
+        enlace = CamadaEnlace()
+
         bits_tx = text_to_bits(text)
+
         if len(bits_tx) == 0:
             return {}
 
+        # ----------- ENCODE -----------
+        modo = params["error_detec"]
+
+        if modo == "Paridade Par":
+            bits_tx = enlace.encode_paridade(bits_tx)
+        elif modo == "Checksum":
+            bits_tx = enlace.encode_checksum(bits_tx)
+        elif modo == "CRC-32":
+            bits_tx = enlace.encode_crc(bits_tx)
+
         if modulation == "NRZ-Polar":
             t_tx, s_tx = cf.nrz_polar(bits_tx)
-            bits_rx = cf.decode_nrz_polar(s_tx)
+            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
+            bits_rx = cf.decode_nrz_polar(s_rx)
 
         elif modulation == "Manchester":
             t_tx, s_tx = cf.manchester(bits_tx)
-            bits_rx = cf.decode_manchester(s_tx)
+            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
+            bits_rx = cf.decode_manchester(s_rx)
 
         elif modulation == "Bipolar (AMI)":
             t_tx, s_tx = cf.bipolar_ami(bits_tx)
-            bits_rx = cf.decode_bipolar_ami(s_tx)
+            s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
+            bits_rx = cf.decode_bipolar_ami(s_rx)
 
-        s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
+
+        # ----------- DECODE -----------
+        if modo == "Paridade Par":
+            bits_rx, erro = enlace.decode_paridade(bits_rx)
+        elif modo == "Checksum":
+            bits_rx, erro = enlace.decode_checksum(bits_rx)
+        elif modo == "CRC-32":
+            bits_rx, erro = enlace.decode_crc(bits_rx)
+
         text_rx = bits_to_text(bits_rx)
 
         return {
             "t_tx": t_tx, "s_tx": s_tx,
             "t_rx": t_tx, "s_rx": s_rx,
             "bits_tx": bits_tx, "bits_rx": bits_rx,
-            "text_rx": text_rx
+            "text_rx": text_rx,
+            "erro": erro
+
         }
 
     gui.set_tx_callback(tx_callback)
@@ -116,7 +144,17 @@ def run_exercicio_112(menu_window):
         snr_db = params["snr_db"]
 
         cf = CamadaFisica(samples_per_bit=spb, V=V)
+        enlace = CamadaEnlace()
+
         bits_tx = text_to_bits(text)
+
+        modo = params["error_detec"]
+        if modo == "Paridade Par":
+            bits_tx = enlace.encode_paridade(bits_tx)
+        elif modo == "Checksum":
+            bits_tx = enlace.encode_checksum(bits_tx)
+        elif modo == "CRC-32":
+            bits_tx = enlace.encode_crc(bits_tx)
 
         if modulation == "ASK":
             t_tx, s_tx = cf.ask(bits_tx)
@@ -134,22 +172,42 @@ def run_exercicio_112(menu_window):
             bits_rx = cf.decode_qpsk(s_rx)
 
         elif modulation == "16-QAM":
+            while len(bits_tx) % 4 != 0:
+                bits_tx.append(0)
             t_tx, s_tx = cf.st_qam(bits_tx)
             s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
             bits_rx = cf.decode_st_qam(s_rx)
 
-        text_rx = bits_to_text(bits_rx)
+        if modo == "Paridade Par":
+            if len(bits_rx) < 1:
+                payload, erro = [], True
+            else:
+                payload, erro = enlace.decode_paridade(bits_rx)
+        elif modo == "Checksum":
+            if len(bits_rx) < 3:
+                payload, erro = [], True
+            else:
+                payload, erro = enlace.decode_checksum(bits_rx)
+        elif modo == "CRC-32":
+            if len(bits_rx) < 32:
+                payload, erro = [], True
+            else:
+                payload, erro = enlace.decode_crc(bits_rx)
+        else:
+            payload, erro = bits_rx, False
+
+        text_rx = bits_to_text(payload)
 
         return {
             "t_tx": t_tx, "s_tx": s_tx,
             "t_rx": t_tx, "s_rx": s_rx,
             "bits_tx": bits_tx, "bits_rx": bits_rx,
-            "text_rx": text_rx
+            "text_rx": text_rx,
+            "erro": erro
         }
 
     gui.set_tx_callback(tx_callback)
     gui.show()
-
 
 # ----------------------------
 # Exercício 1.5 — Hamming (7,4)
