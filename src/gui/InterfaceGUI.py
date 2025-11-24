@@ -54,8 +54,10 @@ class InterfaceGUI(Gtk.Window):
         for mod in modulations:
             self.combo_mod.append_text(mod)
         self.combo_mod.set_active(0)
+
         if len(modulations) == 1:
             self.combo_mod.set_sensitive(False)
+
         grid.attach(self.combo_mod, 1, 1, 1, 1)
 
         # Coluna 2, 3: Samples/bit
@@ -95,13 +97,26 @@ class InterfaceGUI(Gtk.Window):
         self.combo_enq.set_active(0)
         grid.attach(self.combo_enq, 1, 3, 3, 1) # Ocupa 3 colunas para ficar largo
 
-        # --- LINHA 4: Botão Transmitir e Resultado ---
+        # Detecção de Erro
+        lbl_det = Gtk.Label(label="Detecção de Erro:")
+        grid.attach(lbl_det, 0, 4, 1, 1)
+
+        self.combo_det = Gtk.ComboBoxText()
+        self.combo_det.append_text("Paridade Par")
+        self.combo_det.append_text("Checksum")
+        self.combo_det.append_text("CRC-32")
+        self.combo_det.set_active(0)
+        grid.attach(self.combo_det, 1, 4, 3, 1)
+
+
+        # Botão transmitir
         self.btn_tx = Gtk.Button(label="Transmitir")
         self.btn_tx.connect("clicked", self.on_transmit_clicked)
-        grid.attach(self.btn_tx, 0, 4, 1, 1)
+        grid.attach(self.btn_tx, 0, 5, 1, 1)
 
+        # Label recebido
         self.lbl_received = Gtk.Label(label="Recebido: -")
-        grid.attach(self.lbl_received, 1, 4, 3, 1)
+        grid.attach(self.lbl_received, 1, 5, 3, 1)
 
         # --------------------------------------------------------
         # LABELS DE BITS E GRÁFICOS
@@ -114,6 +129,14 @@ class InterfaceGUI(Gtk.Window):
         self.lbl_bits_rx.set_xalign(0)
         vbox.pack_start(self.lbl_bits_rx, False, False, 0)
 
+        # Label do resultado da detecção de erro
+        self.lbl_err_result = Gtk.Label(label="Resultado da detecção: -")
+        self.lbl_err_result.set_xalign(0)
+        vbox.pack_start(self.lbl_err_result, False, False, 0)
+
+        # --------------------------------------------------------
+        # GRÁFICOS
+        # --------------------------------------------------------
         self.fig = Figure(figsize=(8, 4))
         self.ax_tx = self.fig.add_subplot(211)
         self.ax_rx = self.fig.add_subplot(212, sharex=self.ax_tx)
@@ -140,7 +163,8 @@ class InterfaceGUI(Gtk.Window):
             "framing": self.combo_enq.get_active_text(),
             "samples_per_bit": int(self.spin_spb.get_value()),
             "V": float(self.spin_V.get_value()),
-            "snr_db": float(self.spin_snr.get_value())
+            "snr_db": float(self.spin_snr.get_value()),
+            "error_detec": self.combo_det.get_active_text()
         }
 
         result = self._tx_callback(params)
@@ -154,6 +178,7 @@ class InterfaceGUI(Gtk.Window):
         bits_tx = result.get("bits_tx")
         bits_rx = result.get("bits_rx")
         text_rx = result.get("text_rx")
+        erro = result.get("erro")
 
         # limpa gráficos
         self.ax_tx.cla()
@@ -176,6 +201,14 @@ class InterfaceGUI(Gtk.Window):
             self.lbl_bits_rx.set_text(f"Bits RX: {''.join(map(str,bits_rx[:64]))}...")
 
         self.lbl_received.set_text("Recebido: " + text_rx)
+
+        erro = bool(erro)
+        if erro is True:
+            self.lbl_err_result.set_text("Resultado da detecção: ERRO detectado")
+        elif erro is False:
+            self.lbl_err_result.set_text("Resultado da detecção: Sem erro")
+        else:
+            self.lbl_err_result.set_text("Resultado da detecção: -")
 
     # --------------------------------------------------------
     def on_window_destroy(self, widget):

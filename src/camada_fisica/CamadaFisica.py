@@ -142,7 +142,6 @@ class CamadaFisica:
             chunk = waveform[i*s:(i+1)*s]
             first_mean = np.mean(chunk[:half])
             second_mean = np.mean(chunk[half:])
- 
             bits.append(1 if first_mean > second_mean else 0)
         return bits
 
@@ -197,6 +196,7 @@ class CamadaFisica:
 
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
+
     def decode_ask(self, waveform):
         s = self.samples_per_bit
         nb = len(waveform) // s
@@ -448,8 +448,9 @@ class CamadaFisica:
             I_bits_idx = gray_map_inv[I_idx]
             Q_bits_idx = gray_map_inv[Q_idx]
 
-            I_bits = (I_bits_idx >> 1, I_bits_idx & 1)
-            Q_bits = (Q_bits_idx >> 1, Q_bits_idx & 1)
+            # --- pega os bits ---
+            I_bits = ((I_bits_idx >> 1) & 1, I_bits_idx & 1)
+            Q_bits = ((Q_bits_idx >> 1) & 1, Q_bits_idx & 1)
 
             bits.extend(I_bits + Q_bits)
 

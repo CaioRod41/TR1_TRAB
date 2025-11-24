@@ -32,9 +32,6 @@ class MainWindow(Gtk.Window):
         self.btn_hamming.connect("clicked", lambda b: on_select_callback("hamming", self))
         vbox.pack_start(self.btn_hamming, False, False, 0)
 
-
-
-
         self.connect("destroy", Gtk.main_quit)
 
     def show(self):
