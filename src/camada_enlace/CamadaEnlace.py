@@ -88,61 +88,73 @@ class CamadaEnlace:
 
     def encode_crc(self, bits):
         """
-        Implementação ACADÊMICA do CRC-32 real (Ethernet).
-        Usa:
-            - registrador 32 bits (treliça)
-            - polinômio 0x04C11DB7
-            - estado inicial 0xFFFFFFFF
-            - reflexão implícita: NÃO usada aqui (versão simples)
-            - XOR final 0xFFFFFFFF
+        CRC-32 IEEE 802 - CODIFICAÇÃO
+        Implementa divisão polinomial para gerar código de redundância cíclica
+
+        Polinômio G(x) = x³² + x²⁶ + x²³ + x²² + x¹⁶ + x¹² + x¹¹ + x¹⁰ + x⁸ + x⁷ + x⁵ + x⁴ + x² + x + 1
+
+        Como funciona:
+        1. Adiciona 32 zeros aos dados (para divisão)
+        2. Divide por G(x) usando XOR bit a bit
+        3. Resto da divisão = CRC de 32 bits
         """
-        poly = 0x04C11DB7
-        reg = 0xFFFFFFFF  # treliça inicial (padrão CRC-32)
+        if len(bits) == 0:
+            return bits
 
-        for bit in bits:
-            msb = (reg >> 31) & 1
-            feedback = msb ^ bit
+        # Polinômio CRC-32 IEEE 802: 0x104C11DB7
+        # Em binário: 100000100110000010001110110110111 (33 bits)
+        polinomio = 0x104c11db7
 
-            reg = ((reg << 1) & 0xFFFFFFFF)
+        # PASSO 1: Adiciona 32 zeros para a divisão
+        extended_bits = bits + [0] * 32
 
-            if feedback == 1:
-                reg ^= poly
+        # PASSO 2: Divisão polinomial bit a bit
+        divide = extended_bits.copy()
+        for i in range(len(bits)):  # Só processa bits originais
+            if divide[i]:  # Se bit atual é '1'
+                # XOR com polinômio (33 bits)
+                for j in range(33):
+                    if i + j < len(divide):
+                        # Extrai bit j do polinômio (MSB primeiro)
+                        poly_bit = (polinomio >> (32 - j)) & 1
+                        divide[i + j] ^= poly_bit
 
-        crc = reg ^ 0xFFFFFFFF  # XOR final
-
-        crc_bits = [(crc >> (31 - i)) & 1 for i in range(32)]
-        return bits + crc_bits
+        # PASSO 3: CRC são os últimos 32 bits (resto da divisão)
+        crc = divide[-32:]
+        return bits + crc  # Dados originais + CRC
 
     def decode_crc(self, bits):
         """
-        Verifica CRC-32 recomputando com a mesma lógica
-        e comparando com o CRC recebido.
+        CRC-32 IEEE 802 - VERIFICAÇÃO
+        Verifica integridade dividindo quadro completo por G(x)
+
+        Se resto = 0 → sem erro
+        Se resto ≠ 0 → erro detectado
+
+        Retorna: (dados_sem_crc, erro_detectado)
         """
-        if len(bits) < 32:
-            return bits, True
+        if len(bits) < 33:  # Mínimo: 1 bit dados + 32 bits CRC
+            return [], True
 
-        payload = bits[:-32]
-        crc_rx_bits = bits[-32:]
+        polinomio = 0x104c11db7
 
-        crc_rx = 0
-        for b in crc_rx_bits:
-            crc_rx = (crc_rx << 1) | b
+        # PASSO 1: Divide quadro completo (dados + CRC) por G(x)
+        divide = bits.copy()
+        for i in range(len(bits) - 32):  # Processa até sobrar 32 bits
+            if divide[i] == 1:
+                # XOR com polinômio
+                for j in range(33):
+                    if i + j < len(divide):
+                        poly_bit = (polinomio >> (32 - j)) & 1
+                        divide[i + j] ^= poly_bit
 
-        poly = 0x04C11DB7
-        reg = 0xFFFFFFFF
+        # PASSO 2: Resto da divisão (últimos 32 bits)
+        resto = divide[-32:]
 
-        for bit in payload:
-            msb = (reg >> 31) & 1
-            feedback = msb ^ bit
+        # PASSO 3: Se resto ≠ 0, há erro
+        erro = any(bit == 1 for bit in resto)
 
-            reg = ((reg << 1) & 0xFFFFFFFF)
-
-            if feedback == 1:
-                reg ^= poly
-
-        crc_calc = reg ^ 0xFFFFFFFF
-
-        erro = (crc_calc != crc_rx)
+        payload = bits[:-32]  # Remove CRC dos dados
         return payload, erro
 
     #--------------------------------------INICIO DA 1.5-------------------------------------------------
