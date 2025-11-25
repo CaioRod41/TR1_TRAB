@@ -1,5 +1,5 @@
 # ============================================================
-# src/gui/InterfaceGUI.py — VERSÃO REVISADA E CORRIGIDA
+# src/gui/InterfaceGUI.py
 # ============================================================
 
 import gi
@@ -69,7 +69,6 @@ class InterfaceGUI(Gtk.Window):
         grid.attach(self.spin_spb, 3, 1, 1, 1)
 
         # --- LINHA 2: Amplitude e SNR ---
-        # Coluna 0, 1: Amplitude
         lbl_V = Gtk.Label(label="Amplitude V:")
         grid.attach(lbl_V, 0, 2, 1, 1)
 
@@ -77,7 +76,6 @@ class InterfaceGUI(Gtk.Window):
         self.spin_V.set_value(1.0)
         grid.attach(self.spin_V, 1, 2, 1, 1)
 
-        # Coluna 2, 3: SNR
         lbl_snr = Gtk.Label(label="SNR (dB):")
         grid.attach(lbl_snr, 2, 2, 1, 1)
 
@@ -95,7 +93,7 @@ class InterfaceGUI(Gtk.Window):
         self.combo_enq.append_text("FLAGS: Inserção de bytes")
         self.combo_enq.append_text("FLAGS: Inserção de bits")
         self.combo_enq.set_active(0)
-        grid.attach(self.combo_enq, 1, 3, 3, 1) # Ocupa 3 colunas para ficar largo
+        grid.attach(self.combo_enq, 1, 3, 3, 1)
 
         # Detecção de Erro
         lbl_det = Gtk.Label(label="Detecção de Erro:")
@@ -108,15 +106,18 @@ class InterfaceGUI(Gtk.Window):
         self.combo_det.set_active(0)
         grid.attach(self.combo_det, 1, 4, 3, 1)
 
+        # --- LINHA 4.5: CHECKBOX HAMMING (NOVO) ---
+        self.check_hamming = Gtk.CheckButton(label="Correção de Erros (Hamming 7,4)")
+        grid.attach(self.check_hamming, 0, 5, 4, 1)
 
         # Botão transmitir
         self.btn_tx = Gtk.Button(label="Transmitir")
         self.btn_tx.connect("clicked", self.on_transmit_clicked)
-        grid.attach(self.btn_tx, 0, 5, 1, 1)
+        grid.attach(self.btn_tx, 0, 6, 1, 1)
 
         # Label recebido
         self.lbl_received = Gtk.Label(label="Recebido: -")
-        grid.attach(self.lbl_received, 1, 5, 3, 1)
+        grid.attach(self.lbl_received, 1, 6, 3, 1)
 
         # --------------------------------------------------------
         # LABELS DE BITS E GRÁFICOS
@@ -129,7 +130,6 @@ class InterfaceGUI(Gtk.Window):
         self.lbl_bits_rx.set_xalign(0)
         vbox.pack_start(self.lbl_bits_rx, False, False, 0)
 
-        # Label do resultado da detecção de erro
         self.lbl_err_result = Gtk.Label(label="Resultado da detecção: -")
         self.lbl_err_result.set_xalign(0)
         vbox.pack_start(self.lbl_err_result, False, False, 0)
@@ -158,14 +158,16 @@ class InterfaceGUI(Gtk.Window):
             return
 
         params = {
-            "text": self.entry_text.get_text(),
-            "modulation": self.combo_mod.get_active_text(),
-            "framing": self.combo_enq.get_active_text(),
-            "samples_per_bit": int(self.spin_spb.get_value()),
-            "V": float(self.spin_V.get_value()),
-            "snr_db": float(self.spin_snr.get_value()),
-            "error_detec": self.combo_det.get_active_text()
-        }
+        "text": self.entry_text.get_text(),
+        "modulation": self.combo_mod.get_active_text(),
+        "framing": self.combo_enq.get_active_text(),
+        "samples_per_bit": int(self.spin_spb.get_value()),
+        "V": float(self.spin_V.get_value()),
+        "snr_db": float(self.spin_snr.get_value()),
+        "error_detec": self.combo_det.get_active_text(),
+        "apply_hamming": self.check_hamming.get_active()
+    }
+
 
         result = self._tx_callback(params)
         if not result:
@@ -180,7 +182,6 @@ class InterfaceGUI(Gtk.Window):
         text_rx = result.get("text_rx")
         erro = result.get("erro")
 
-        # limpa gráficos
         self.ax_tx.cla()
         self.ax_rx.cla()
 
@@ -194,7 +195,6 @@ class InterfaceGUI(Gtk.Window):
 
         self.canvas.draw_idle()
 
-        # Atualiza os labels
         if bits_tx:
             self.lbl_bits_tx.set_text(f"Bits TX: {''.join(map(str,bits_tx[:64]))}...")
         if bits_rx:
