@@ -157,53 +157,37 @@ class CamadaEnlace:
 
     def encode_checksum(self, bits):
         """
-        Implementa o checksum conforme a treliça fixa 000.
-        Ao final, adiciona os 3 bits do checksum ao quadro.
+        Checksum: divide mensagem em bytes, soma, complemento de 1 da soma
         """
-        estado = [0, 0, 0]
-
-        for b in bits:
-            # deslocamento (shift right): e2 = e1, e1 = e0, e0 = novo bit
-            estado = [b, estado[0], estado[1]]
-
-        # estado final é o checksum
-        checksum = estado[:]  # copia
-
-        # retorna quadro + checksum
-        return bits + checksum
+        bytes_data = self._bits_to_bytes(bits)
+        
+        # Soma todos os bytes
+        soma = sum(bytes_data) & 0xFF  # Mantém em 8 bits
+        
+        # Complemento de 1 da soma = checksum
+        checksum = (~soma) & 0xFF
+        
+        # Retorna dados + checksum
+        return bits + self._bytes_to_bits([checksum])
 
     def decode_checksum(self, bits):
         """
-        Decodifica o checksum calculando novamente a treliça
-        e comparando com o checksum anexado.
-        Retorna (bits_sem_checksum, erro_detectado)
+        Verifica checksum: soma dados + checksum, complemento de 1 deve ser 0
         """
-
-        if len(bits) < 3:
+        if len(bits) < 8:
             return bits, True
-
-        # separa payload e checksum
-        payload = bits[:-3]
-        checksum_rx = bits[-3:]
-
-        # recalcula checksum
-        estado = [0, 0, 0]
-
-        for b in payload:
-            estado = [b, estado[0], estado[1]]
-
-        checksum_calc = estado[:]
-
-        erro = (checksum_calc != checksum_rx)
         
-        # Detecção adicional: verifica padrões suspeitos
-        if not erro and len(payload) > 16:
-            # Conta transições 0->1 e 1->0
-            transitions = sum(1 for i in range(1, len(payload)) if payload[i] != payload[i-1])
-            # Se muito poucas transições, pode ser ruído
-            if transitions < len(payload) * 0.1:  # Menos de 10% de transições
-                erro = True
-
+        bytes_data = self._bits_to_bytes(bits)
+        
+        # Soma todos os bytes (dados + checksum)
+        soma = sum(bytes_data) & 0xFF
+        
+        # Complemento de 1 da soma deve ser 0
+        resultado = (~soma) & 0xFF
+        erro = (resultado != 0)
+        
+        # Remove checksum (último byte)
+        payload = bits[:-8]
         return payload, erro
 
     def encode_crc(self, bits):

@@ -273,45 +273,46 @@ class CamadaFisica:
         return bits
 
     def qpsk(self, bits):
-        simbolos = self.bits_to_symbols(bits, 'QPSK')
+        simbolos = self.bits_to_symbols(bits, 'QPSK') # Agrupamento de 2 bits por símbolo
         samples_per_symbol = 2 * self.samples_per_bit
         Ts = 2 * self.Tb  # Duração do símbolo
         fs = self.fs
-        fc = 1/Ts # Nyquist
+        fc = 1/Ts  # 1 ciclo por símbolo (Nyquist)
 
         waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
 
         # Gray mapping
         mapping = {
-            (0, 0): (self.V, self.V),
-            (0, 1): (-self.V, self.V),
-            (1, 1): (-self.V, -self.V),
-            (1, 0): (self.V, -self.V)
+            (0, 0): (self.V, self.V), # Fase: 45º
+            (0, 1): (-self.V, self.V), # Fase: 135º
+            (1, 1): (-self.V, -self.V), # Fase: 225º
+            (1, 0): (self.V, -self.V) # Fase: 315º
         }
 
         for i, simb in enumerate(simbolos):
             t_local = np.arange(0, samples_per_symbol) / fs
 
-            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            # Geração de Portadora
+            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            aI, aQ = mapping[simb]
+            aI, aQ = mapping[simb] # x(t) e y(t)
 
-            s = aI * phi_I + aQ * phi_Q
+            # Portadora modulada
+            s = aI * I_t + aQ * Q_t
 
             inicio = i * samples_per_symbol
             fim = inicio + samples_per_symbol
             waveform[inicio:fim] = s
 
         t = np.arange(len(waveform)) / fs
-
         return t, waveform
 
     def decode_qpsk(self, waveform):
         samples_per_symbol = 2 * self.samples_per_bit
         Ts = 2 * self.Tb
         fs = self.fs
-        fc= 1/Ts
+        fc = 1/Ts
 
         num_symbols = len(waveform) // samples_per_symbol
         bits = []
@@ -323,16 +324,17 @@ class CamadaFisica:
 
             t_local = np.arange(0, samples_per_symbol) / fs
 
-            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
             # Correlações (projeções)
-            corr_I = np.sum(simbolo * phi_I)
-            corr_Q = np.sum(simbolo * phi_Q)
+            corr_I = np.sum(simbolo * I_t)
+            corr_Q = np.sum(simbolo * Q_t)
 
             # Normalização
-            I_hat = corr_I / fs
-            Q_hat = corr_Q / fs
+            E = np.sum(I_t ** 2)  # Energia da portadora
+            I_hat = corr_I / E
+            Q_hat = corr_Q / E
 
             # Gray mapping
             if I_hat > 0 and Q_hat > 0:
@@ -350,7 +352,7 @@ class CamadaFisica:
     # Modulador (Ex 1.1.2) 16-QAM
     # -------------------------
     def st_qam(self, bits):
-        simbolos = self.bits_to_symbols(bits, '16-QAM')
+        simbolos = self.bits_to_symbols(bits, '16-QAM') # Agrupamento de 4 bits por símbolo
         samples_per_symbol = 4 * self.samples_per_bit
         Ts = 4 * self.Tb
         fs = self.fs
@@ -358,29 +360,42 @@ class CamadaFisica:
 
         waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
 
-        # Níveis normalizados
-        a3 = (1 / np.sqrt(2)) * self.V
-        a1 = (1 / (3 * np.sqrt(2))) * self.V
-        levels = np.array([-a3, -a1, +a1, +a3])
+        # Níveis da constelação 16-QAM quadrada (conforme teoria)
+        sqrt2 = np.sqrt(2)
+        level1 = -1 / sqrt2 * self.V      # -1/√2
+        level2 = -1 / (3 * sqrt2) * self.V # -1/(3√2)
+        level3 = 1 / (3 * sqrt2) * self.V  # +1/(3√2)
+        level4 = 1 / sqrt2 * self.V       # +1/√2
 
-        # Gray mapping
-        gray_map = np.array([0, 1, 3, 2])
+        # Gray mapping conforme tabela teórica
+        mapping = {
+            (0, 0, 0, 0): (level2, level2),  # -1/(3√2), -1/(3√2)
+            (0, 0, 0, 1): (level1, level2),  # -1/√2, -1/(3√2)
+            (0, 0, 1, 0): (level2, level1),  # -1/(3√2), -1/√2
+            (0, 0, 1, 1): (level1, level1),  # -1/√2, -1/√2
+            (0, 1, 0, 0): (level3, level2),  # +1/(3√2), -1/(3√2)
+            (0, 1, 0, 1): (level4, level2),  # +1/√2, -1/(3√2)
+            (0, 1, 1, 0): (level3, level1),  # +1/(3√2), -1/√2
+            (0, 1, 1, 1): (level4, level1),  # +1/√2, -1/√2
+            (1, 0, 0, 0): (level2, level3),  # -1/(3√2), +1/(3√2)
+            (1, 0, 0, 1): (level1, level3),  # -1/√2, +1/(3√2)
+            (1, 0, 1, 0): (level2, level4),  # -1/(3√2), +1/√2
+            (1, 0, 1, 1): (level1, level4),  # -1/√2, +1/√2
+            (1, 1, 0, 0): (level3, level3),  # +1/(3√2), +1/(3√2)
+            (1, 1, 0, 1): (level4, level3),  # +1/√2, +1/(3√2)
+            (1, 1, 1, 0): (level3, level4),  # +1/(3√2), +1/√2
+            (1, 1, 1, 1): (level4, level4),  # +1/√2, +1/√2
+        }
 
         for i, simb in enumerate(simbolos):
-            # Converte tupla de 4 bits para inteiro
-            simb_int = (simb[0] << 3) + (simb[1] << 2) + (simb[2] << 1) + simb[3]
-
-            # Dois bits MSB → eixo I, dois bits LSB → eixo Q
-            I_idx = gray_map[simb_int >> 2]
-            Q_idx = gray_map[simb_int & 0b11]
-
-            aI, aQ = levels[I_idx], levels[Q_idx]
+            aI, aQ = mapping[simb]
 
             t_local = np.arange(0, samples_per_symbol) / fs
-            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            s = aI * phi_I + aQ * phi_Q
+            # s(t) = x(t)cos(ωct) - y(t)sin(ωct)
+            s = aI * I_t + aQ * Q_t
 
             ini = i * samples_per_symbol
             fim = ini + samples_per_symbol
@@ -398,14 +413,35 @@ class CamadaFisica:
         num_symbols = len(waveform) // samples_per_symbol
         bits = []
 
-        # Níveis normalizados
-        a3 = (1 / np.sqrt(2)) * self.V
-        a1 = (1 / (3 * np.sqrt(2))) * self.V
-        levels = np.array([-a3, -a1, +a1, +a3])
+        # Níveis da constelação (4 níveis por eixo)
+        sqrt2 = np.sqrt(2)
+        levels = np.array([
+            -1 / sqrt2 * self.V,      # índice 0: -1/√2 (level1)
+            -1 / (3 * sqrt2) * self.V, # índice 1: -1/(3√2) (level2)
+            1 / (3 * sqrt2) * self.V,  # índice 2: +1/(3√2) (level3)
+            1 / sqrt2 * self.V        # índice 3: +1/√2 (level4)
+        ])
 
-        # Gray mapping
-        gray_map = np.array([0, 1, 3, 2])
-        gray_map_inv = np.argsort(gray_map)  # Índice
+        # Mapeamento inverso correto (I_idx, Q_idx -> 4 bits)
+        # Deve corresponder exatamente ao mapeamento direto
+        inverse_mapping = {
+            (1, 1): (0, 0, 0, 0),  # level2, level2 -> 0000
+            (0, 1): (0, 0, 0, 1),  # level1, level2 -> 0001
+            (1, 0): (0, 0, 1, 0),  # level2, level1 -> 0010
+            (0, 0): (0, 0, 1, 1),  # level1, level1 -> 0011
+            (2, 1): (0, 1, 0, 0),  # level3, level2 -> 0100
+            (3, 1): (0, 1, 0, 1),  # level4, level2 -> 0101
+            (2, 0): (0, 1, 1, 0),  # level3, level1 -> 0110
+            (3, 0): (0, 1, 1, 1),  # level4, level1 -> 0111
+            (1, 2): (1, 0, 0, 0),  # level2, level3 -> 1000
+            (0, 2): (1, 0, 0, 1),  # level1, level3 -> 1001
+            (1, 3): (1, 0, 1, 0),  # level2, level4 -> 1010
+            (0, 3): (1, 0, 1, 1),  # level1, level4 -> 1011
+            (2, 2): (1, 1, 0, 0),  # level3, level3 -> 1100
+            (3, 2): (1, 1, 0, 1),  # level4, level3 -> 1101
+            (2, 3): (1, 1, 1, 0),  # level3, level4 -> 1110
+            (3, 3): (1, 1, 1, 1),  # level4, level4 -> 1111
+        }
 
         for i in range(num_symbols):
             ini = i * samples_per_symbol
@@ -413,27 +449,23 @@ class CamadaFisica:
             simbolo = waveform[ini:fim]
 
             t_local = np.arange(0, samples_per_symbol) / fs
-            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            corr_I = np.sum(simbolo * phi_I)
-            corr_Q = np.sum(simbolo * phi_Q)
-            E = np.sum(phi_I ** 2)
+            # Correlação (extração I(t) e Q(t))
+            corr_I = np.sum(simbolo * I_t)
+            corr_Q = np.sum(simbolo * Q_t)
+            E = np.sum(I_t ** 2)
 
             I_hat = corr_I / E
             Q_hat = corr_Q / E
 
-            # --- decisão pelo nível mais próximo ---
+            # Quantização em 4 níveis (decisão pelo nível mais próximo)
             I_idx = np.argmin(np.abs(I_hat - levels))
             Q_idx = np.argmin(np.abs(Q_hat - levels))
 
-            # --- converte índice para Gray code (2 bits) ---
-            I_bits_idx = gray_map_inv[I_idx]
-            Q_bits_idx = gray_map_inv[Q_idx]
+            # Conversão para bits usando mapeamento inverso completo
+            symbol_bits = inverse_mapping[(I_idx, Q_idx)]
+            bits.extend(symbol_bits)
 
-            # --- pega os bits ---
-            I_bits = ((I_bits_idx >> 1) & 1, I_bits_idx & 1)
-            Q_bits = ((Q_bits_idx >> 1) & 1, Q_bits_idx & 1)
-
-            bits.extend(I_bits + Q_bits)
         return bits
