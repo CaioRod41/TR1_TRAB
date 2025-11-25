@@ -1,15 +1,7 @@
-# src/camada_fisica/CamadaFisica.py
 import numpy as np
 
 class CamadaFisica:
-
-    #--------------------------------------INICIO DA 1.1.1-------------------------------------------------
     """
-    Implementa codificações banda-base digitais:
-      - NRZ-Polar
-      - Manchester
-      - Bipolar (AMI)
-
     Cada método de codificação retorna (t, waveform) onde:
       - t: vetor de tempos (numpy array)
       - waveform: amostras (numpy array, float)
@@ -60,8 +52,45 @@ class CamadaFisica:
         return bytes(out)
 
     # -------------------------
-    # Codificadores (Ex 1.1.1)
+    # Função utilitária: adicionar ruído AWGN
     # -------------------------
+    def add_awgn(self, waveform, snr_db):
+        """
+        Adiciona ruído AWGN ao waveform para um SNR (dB) fornecido.
+        SNR definido como 10*log10(signal_power / noise_power).
+        """
+        sig_pow = np.mean(waveform ** 2)
+        snr_linear = 10 ** (snr_db / 10.0)
+        noise_pow = sig_pow / snr_linear if snr_linear != 0 else sig_pow * 0.001
+        noise = np.sqrt(noise_pow) * np.random.randn(len(waveform))
+        return waveform + noise
+
+    def bits_to_symbols(self, bits, modulation='QPSK'):
+        ''' Função para agrupar bits em síbolos (2 bits p/ QPSK e 4 bits p/ 16-QAM'''
+        if modulation == 'QPSK':
+            bits_per_symbol = 2
+        else:
+            bits_per_symbol = 4
+
+        # Padding
+        if len(bits) % bits_per_symbol != 0:
+            pad = bits_per_symbol - (len(bits) % bits_per_symbol)
+            bits = bits + [0] * pad
+
+        simbolos = []
+        for i in range(0, len(bits), bits_per_symbol):
+            simbolo = tuple(bits[i:i + bits_per_symbol])
+            simbolos.append(simbolo)
+
+        return simbolos
+
+    # -------------------------
+    # 1.1.1 Modulção Digital
+    # -------------------------
+    """Implementa codificações banda-base digitais:
+      - NRZ-Polar
+      - Manchester
+      - Bipolar (AMI)"""
     def nrz_polar(self, bits):
         """NRZ-Polar: 1 -> +V ; 0 -> -V"""
         s_per_bit = self.samples_per_bit
@@ -71,6 +100,17 @@ class CamadaFisica:
             waveform[i * s_per_bit : (i + 1) * s_per_bit] = level
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
+
+    def decode_nrz_polar(self, waveform):
+        """Decodifica NRZ-Polar por média em cada intervalo de bit (threshold 0)."""
+        s = self.samples_per_bit
+        nb = len(waveform) // s
+        bits = []
+        for i in range(nb):
+            chunk = waveform[i*s:(i+1)*s]
+            m = np.mean(chunk)
+            bits.append(1 if m > 0.0 else 0)
+        return bits
 
     def manchester(self, bits):
         """Manchester:
@@ -91,6 +131,20 @@ class CamadaFisica:
         waveform = np.array(waveform, dtype=float)
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
+
+    def decode_manchester(self, waveform):
+        """Decodifica Manchester examinando as duas metades do bit."""
+        s = self.samples_per_bit
+        nb = len(waveform) // s
+        bits = []
+        half = s//2
+        for i in range(nb):
+            chunk = waveform[i*s:(i+1)*s]
+            first_mean = np.mean(chunk[:half])
+            second_mean = np.mean(chunk[half:])
+            bits.append(1 if first_mean > second_mean else 0)
+        return bits
+
 
     def bipolar_ami(self, bits):
         """
@@ -118,33 +172,6 @@ class CamadaFisica:
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
 
-    # -------------------------
-    # Decodificadores (simples, por amostragem)
-    # -------------------------
-    def decode_nrz_polar(self, waveform):
-        """Decodifica NRZ-Polar por média em cada intervalo de bit (threshold 0)."""
-        s = self.samples_per_bit
-        nb = len(waveform) // s
-        bits = []
-        for i in range(nb):
-            chunk = waveform[i*s:(i+1)*s]
-            m = np.mean(chunk)
-            bits.append(1 if m > 0.0 else 0)
-        return bits
-
-    def decode_manchester(self, waveform):
-        """Decodifica Manchester examinando as duas metades do bit."""
-        s = self.samples_per_bit
-        nb = len(waveform) // s
-        bits = []
-        half = s//2
-        for i in range(nb):
-            chunk = waveform[i*s:(i+1)*s]
-            first_mean = np.mean(chunk[:half])
-            second_mean = np.mean(chunk[half:])
-            bits.append(1 if first_mean > second_mean else 0)
-        return bits
-
     def decode_bipolar_ami(self, waveform):
         """Decodifica AMI: decide 0 se média próxima de 0, senão 1."""
         s = self.samples_per_bit
@@ -161,24 +188,7 @@ class CamadaFisica:
         return bits
 
     # -------------------------
-    # Função utilitária: adicionar ruído AWGN
-    # -------------------------
-    def add_awgn(self, waveform, snr_db):
-        """
-        Adiciona ruído AWGN ao waveform para um SNR (dB) fornecido.
-        SNR definido como 10*log10(signal_power / noise_power).
-        """
-        sig_pow = np.mean(waveform**2)
-        snr_linear = 10**(snr_db/10.0)
-        noise_pow = sig_pow / snr_linear if snr_linear != 0 else sig_pow * 0.001
-        noise = np.sqrt(noise_pow) * np.random.randn(len(waveform))
-        return waveform + noise
-    
-
-    #--------------------------------------FIM DA 1.1.1-------------------------------------------------
-
-    # -------------------------
-    # Modulador (Ex 1.1.2) ASK
+    # 1.1.2 Modulação por Portadora
     # -------------------------
     def ask(self, bits):
         s_per_bit = self.samples_per_bit
@@ -208,9 +218,6 @@ class CamadaFisica:
             bits.append(1 if power > threshold else 0)
         return bits
 
-    # -------------------------
-    # Modulador (Ex 1.1.2) FSK
-    # -------------------------
     def fsk(self, bits):
         """Modulação FSK, baseada na imagem (reinicia a fase a cada bit)"""
         s_per_bit = self.samples_per_bit
@@ -264,29 +271,6 @@ class CamadaFisica:
             bits.append(1 if energy_f1 > energy_f2 else 0)
 
         return bits
-
-    # -------------------------
-    # Modulador (Ex 1.1.2) QPSK
-    # -------------------------
-    ''' Tavez seja bom calcular BER'''
-    def bits_to_symbols(self, bits, modulation='QPSK'):
-        ''' Função para agrupar bits em síbolos (2 bits p/ QPSK e 4 bits p/ 16-QAM'''
-        if modulation == 'QPSK':
-            bits_per_symbol = 2
-        else:
-            bits_per_symbol = 4
-
-        # Padding
-        if len(bits) % bits_per_symbol != 0:
-            pad = bits_per_symbol - (len(bits) % bits_per_symbol)
-            bits = bits + [0] * pad
-
-        simbolos = []
-        for i in range(0, len(bits), bits_per_symbol):
-            simbolo = tuple(bits[i:i + bits_per_symbol])
-            simbolos.append(simbolo)
-
-        return simbolos
 
     def qpsk(self, bits):
         simbolos = self.bits_to_symbols(bits, 'QPSK')
@@ -403,7 +387,6 @@ class CamadaFisica:
             waveform[ini:fim] = s
 
         t = np.arange(len(waveform)) / fs
-
         return t, waveform
 
     def decode_st_qam(self, waveform):
@@ -453,5 +436,4 @@ class CamadaFisica:
             Q_bits = ((Q_bits_idx >> 1) & 1, Q_bits_idx & 1)
 
             bits.extend(I_bits + Q_bits)
-
         return bits
