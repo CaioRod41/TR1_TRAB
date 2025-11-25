@@ -6,7 +6,7 @@ from gi.repository import Gtk
 class MainWindow(Gtk.Window):
     """
     Janela principal do simulador TR1.
-    Permite escolher o exercício (1.1.1, 1.1.2, 2.1.1, etc.)
+    Permite escolher o exercício (1.1.1, 1.1.2)
     """
     def __init__(self, on_select_callback):
         super().__init__(title="Simulador TR1 - Menu Principal")
@@ -19,7 +19,6 @@ class MainWindow(Gtk.Window):
         lbl = Gtk.Label(label="Escolha o exercício para simular:")
         vbox.pack_start(lbl, False, False, 0)
 
-        # Botões de navegação
         self.btn_111 = Gtk.Button(label="1.1.1 - Modulação digital")
         self.btn_111.connect("clicked", lambda b: on_select_callback("1.1.1", self))
         vbox.pack_start(self.btn_111, False, False, 0)
@@ -28,9 +27,7 @@ class MainWindow(Gtk.Window):
         self.btn_112.connect("clicked", lambda b: on_select_callback("1.1.2", self))
         vbox.pack_start(self.btn_112, False, False, 0)
 
-        self.btn_hamming = Gtk.Button(label="1.5 - Hamming (7,4)")
-        self.btn_hamming.connect("clicked", lambda b: on_select_callback("hamming", self))
-        vbox.pack_start(self.btn_hamming, False, False, 0)
+        # Hamming removido daqui
 
         self.connect("destroy", Gtk.main_quit)
 
