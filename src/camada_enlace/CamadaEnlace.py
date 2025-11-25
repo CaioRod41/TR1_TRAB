@@ -142,37 +142,17 @@ class CamadaEnlace:
     # -------------------------------------
 
     def encode_paridade(self, bits):
-        count_ones = sum(bits)
         paridade = 0
-        if (count_ones % 2 != 0):
-            paridade = 1
+        if sum(bits) % 2 != 0:
+            paridade= 1
         return bits + [paridade]
 
     def decode_paridade(self, bits):
-        if len(bits) == 0:
-            return bits, True
-
         payload = bits[:-1]
         bit_p = bits[-1]
-
-        # Verifica paridade E se houve mudança nos bits
-        erro = ((sum(payload) + bit_p) % 2) != 0
+        total_ones = sum(payload) + bit_p
+        erro = (total_ones % 2) != 0
         
-        # Detecção adicional: se payload tem padrão suspeito
-        if not erro and len(payload) > 8:
-            # Se muitos bits consecutivos iguais, pode ser ruído
-            consecutive_count = 1
-            max_consecutive = 1
-            for i in range(1, len(payload)):
-                if payload[i] == payload[i-1]:
-                    consecutive_count += 1
-                    max_consecutive = max(max_consecutive, consecutive_count)
-                else:
-                    consecutive_count = 1
-            # Se mais de 12 bits consecutivos iguais, suspeita de erro
-            if max_consecutive > 12:
-                erro = True
-                
         return payload, erro
 
     def encode_checksum(self, bits):
