@@ -360,31 +360,31 @@ class CamadaFisica:
 
         waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
 
-        # Níveis da constelação 16-QAM quadrada (conforme teoria)
+        # Níveis da constelação 16-QAM quadrada
         sqrt2 = np.sqrt(2)
         level1 = -1 / sqrt2 * self.V      # -1/√2
         level2 = -1 / (3 * sqrt2) * self.V # -1/(3√2)
         level3 = 1 / (3 * sqrt2) * self.V  # +1/(3√2)
         level4 = 1 / sqrt2 * self.V       # +1/√2
 
-        # Gray mapping conforme tabela teórica
+        # Gray mapping
         mapping = {
             (0, 0, 0, 0): (level2, level2),  # -1/(3√2), -1/(3√2)
-            (0, 0, 0, 1): (level1, level2),  # -1/√2, -1/(3√2)
-            (0, 0, 1, 0): (level2, level1),  # -1/(3√2), -1/√2
-            (0, 0, 1, 1): (level1, level1),  # -1/√2, -1/√2
-            (0, 1, 0, 0): (level3, level2),  # +1/(3√2), -1/(3√2)
-            (0, 1, 0, 1): (level4, level2),  # +1/√2, -1/(3√2)
-            (0, 1, 1, 0): (level3, level1),  # +1/(3√2), -1/√2
-            (0, 1, 1, 1): (level4, level1),  # +1/√2, -1/√2
-            (1, 0, 0, 0): (level2, level3),  # -1/(3√2), +1/(3√2)
-            (1, 0, 0, 1): (level1, level3),  # -1/√2, +1/(3√2)
-            (1, 0, 1, 0): (level2, level4),  # -1/(3√2), +1/√2
-            (1, 0, 1, 1): (level1, level4),  # -1/√2, +1/√2
-            (1, 1, 0, 0): (level3, level3),  # +1/(3√2), +1/(3√2)
-            (1, 1, 0, 1): (level4, level3),  # +1/√2, +1/(3√2)
+            (0, 0, 0, 1): (level2, level1),  # -1/(3√2), -1/√2
+            (0, 0, 1, 1): (level2, level3),  # -1/(3√2), +1/(3√2)
+            (0, 0, 1, 0): (level2, level4),  # -1/(3√2), +1/√2
+            (0, 1, 0, 0): (level1, level2),  # -1/√2, -1/(3√2)
+            (0, 1, 0, 1): (level1, level1),  # -1/√2, -1/√2
+            (0, 1, 1, 1): (level1, level3),  # -1/√2, +1/(3√2)
+            (0, 1, 1, 0): (level1, level4),  # -1/√2, +1/√2
+            (1, 1, 0, 0): (level3, level2),  # +1/(3√2), -1/(3√2)
+            (1, 1, 0, 1): (level3, level1),  # +1/(3√2), -1/√2
+            (1, 1, 1, 1): (level3, level3),  # +1/(3√2), +1/(3√2)
             (1, 1, 1, 0): (level3, level4),  # +1/(3√2), +1/√2
-            (1, 1, 1, 1): (level4, level4),  # +1/√2, +1/√2
+            (1, 0, 0, 0): (level4, level2),  # +1/√2, -1/(3√2)
+            (1, 0, 0, 1): (level4, level1),  # +1/√2, -1/√2
+            (1, 0, 1, 1): (level4, level3),  # +1/√2, +1/(3√2)
+            (1, 0, 1, 0): (level4, level4),  # +1/√2, +1/√2
         }
 
         for i, simb in enumerate(simbolos):
@@ -394,7 +394,7 @@ class CamadaFisica:
             I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
             Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            # s(t) = x(t)cos(ωct) - y(t)sin(ωct)
+            # s(t) = x(t)cos(2pifct) - y(t)sin(2pifct)
             s = aI * I_t + aQ * Q_t
 
             ini = i * samples_per_symbol
@@ -414,33 +414,33 @@ class CamadaFisica:
         bits = []
 
         # Níveis da constelação (4 níveis por eixo)
+        """ 
+        índice 0: -1/√2 (level1)
+        índice 1: -1/(3√2) (level2)
+        índice 2: +1/(3√2) (level3)
+        índice 3: +1/√2 (level4)
+        """
         sqrt2 = np.sqrt(2)
-        levels = np.array([
-            -1 / sqrt2 * self.V,      # índice 0: -1/√2 (level1)
-            -1 / (3 * sqrt2) * self.V, # índice 1: -1/(3√2) (level2)
-            1 / (3 * sqrt2) * self.V,  # índice 2: +1/(3√2) (level3)
-            1 / sqrt2 * self.V        # índice 3: +1/√2 (level4)
-        ])
+        levels = np.array([-1 / sqrt2 * self.V, -1 / (3 * sqrt2) * self.V, 1 / (3 * sqrt2) * self.V, 1 / sqrt2 * self.V])
 
-        # Mapeamento inverso correto (I_idx, Q_idx -> 4 bits)
-        # Deve corresponder exatamente ao mapeamento direto
+        # Mapeamento inverso Gray
         inverse_mapping = {
-            (1, 1): (0, 0, 0, 0),  # level2, level2 -> 0000
-            (0, 1): (0, 0, 0, 1),  # level1, level2 -> 0001
-            (1, 0): (0, 0, 1, 0),  # level2, level1 -> 0010
-            (0, 0): (0, 0, 1, 1),  # level1, level1 -> 0011
-            (2, 1): (0, 1, 0, 0),  # level3, level2 -> 0100
-            (3, 1): (0, 1, 0, 1),  # level4, level2 -> 0101
-            (2, 0): (0, 1, 1, 0),  # level3, level1 -> 0110
-            (3, 0): (0, 1, 1, 1),  # level4, level1 -> 0111
-            (1, 2): (1, 0, 0, 0),  # level2, level3 -> 1000
-            (0, 2): (1, 0, 0, 1),  # level1, level3 -> 1001
-            (1, 3): (1, 0, 1, 0),  # level2, level4 -> 1010
-            (0, 3): (1, 0, 1, 1),  # level1, level4 -> 1011
-            (2, 2): (1, 1, 0, 0),  # level3, level3 -> 1100
-            (3, 2): (1, 1, 0, 1),  # level4, level3 -> 1101
-            (2, 3): (1, 1, 1, 0),  # level3, level4 -> 1110
-            (3, 3): (1, 1, 1, 1),  # level4, level4 -> 1111
+            (1, 1): (0, 0, 0, 0),  # level2, level2
+            (1, 0): (0, 0, 0, 1),  # level2, level1
+            (1, 2): (0, 0, 1, 1),  # level2, level3
+            (1, 3): (0, 0, 1, 0),  # level2, level4
+            (0, 1): (0, 1, 0, 0),  # level1, level2
+            (0, 0): (0, 1, 0, 1),  # level1, level1
+            (0, 2): (0, 1, 1, 1),  # level1, level3
+            (0, 3): (0, 1, 1, 0),  # level1, level4
+            (2, 1): (1, 1, 0, 0),  # level3, level2
+            (2, 0): (1, 1, 0, 1),  # level3, level1
+            (2, 2): (1, 1, 1, 1),  # level3, level3
+            (2, 3): (1, 1, 1, 0),  # level3, level4
+            (3, 1): (1, 0, 0, 0),  # level4, level2
+            (3, 0): (1, 0, 0, 1),  # level4, level1
+            (3, 2): (1, 0, 1, 1),  # level4, level3
+            (3, 3): (1, 0, 1, 0),  # level4, level4
         }
 
         for i in range(num_symbols):
@@ -464,8 +464,12 @@ class CamadaFisica:
             I_idx = np.argmin(np.abs(I_hat - levels))
             Q_idx = np.argmin(np.abs(Q_hat - levels))
 
-            # Conversão para bits usando mapeamento inverso completo
-            symbol_bits = inverse_mapping[(I_idx, Q_idx)]
-            bits.extend(symbol_bits)
+            # Conversão para bits usando mapeamento inverso
+            if (I_idx, Q_idx) in inverse_mapping:
+                symbol_bits = inverse_mapping[(I_idx, Q_idx)]
+                bits.extend(symbol_bits)
+            else:
+                # Fallback para símbolos não mapeados
+                bits.extend([0, 0, 0, 0])
 
         return bits

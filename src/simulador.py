@@ -28,7 +28,6 @@ def text_to_bits(s: str):
             bits.append((byte >> (7 - i)) & 1)
     return bits
 
-
 def bits_to_text(bits):
     pad = (-len(bits)) % 8
     bits = bits + [0] * pad
@@ -65,7 +64,7 @@ def run_exercicio_111(menu_window):
         snr_db = params["snr_db"]
 
         framing_type = params.get("framing", "Nenhum")
-        error_detection = params.get("error_detec", "Nenhum")
+        error_detection = params.get("error_detec", "Paridade Par")
         apply_hamming = params.get("apply_hamming", False)
 
         cf = CamadaFisica(samples_per_bit=spb, V=V)
@@ -92,7 +91,6 @@ def run_exercicio_111(menu_window):
 
         # 4. Detecção de erro (somente se NÃO for Hamming)
         bits_com_deteccao = bits_para_transmitir
-
         if not apply_hamming:
             if error_detection == "Paridade Par":
                 bits_com_deteccao = enlace.encode_paridade(bits_para_transmitir)
@@ -103,7 +101,7 @@ def run_exercicio_111(menu_window):
 
         # 5. Modulação
         if modulation == "NRZ-Polar":
-            t_tx, s_tx = cf.nrz_polar(bits_com_deteccao)
+            t_tx, s_tx = cf.nrz_polar(bits_com_deteccao) # TODO: ta fazendo detecção antes da modulação???
         elif modulation == "Manchester":
             t_tx, s_tx = cf.manchester(bits_com_deteccao)
         elif modulation == "Bipolar (AMI)":
@@ -155,7 +153,7 @@ def run_exercicio_111(menu_window):
         return {
             "t_tx": t_tx, "s_tx": s_tx,
             "t_rx": t_tx, "s_rx": s_rx,
-            "bits_tx": bits_tx,
+            "bits_tx": bits_para_transmitir,
             "bits_rx": bits_rx_encoded,
             "text_rx": text_rx,
             "erro": erro_detectado
@@ -166,7 +164,7 @@ def run_exercicio_111(menu_window):
 
 
 # ----------------------------
-# Exercício 1.1.2 
+# Exercício 1.1.2
 # ----------------------------
 def run_exercicio_112(menu_window):
     def on_close():
@@ -188,8 +186,8 @@ def run_exercicio_112(menu_window):
           # 1. Pega o enquadramento escolhido
         framing_type = params.get("framing", "Nenhum")
         # Pega o método de detecção de erro
-        error_detection = params.get("error_detec", "Nenhum")
-        # apliac o hamming
+        error_detection = params.get("error_detec", "Paridade Par")
+        # Aplica o hamming
         apply_hamming = params.get("apply_hamming", False)
 
         cf = CamadaFisica(samples_per_bit=spb, V=V)
@@ -279,7 +277,7 @@ def run_exercicio_112(menu_window):
         return {
             "t_tx": t_tx, "s_tx": s_tx,
             "t_rx": t_tx, "s_rx": s_rx,
-            "bits_tx": bits_tx,
+            "bits_tx": bits_para_transmitir,
             "bits_rx": bits_rx_encoded,
             "text_rx": text_rx,
             "erro": erro_detectado

@@ -12,7 +12,6 @@ class CamadaEnlace:
             out.append(byte)
         return out
 
-
     def _bytes_to_bits(self, bytes_list):
         bits = []
         for b in bytes_list:
@@ -29,7 +28,6 @@ class CamadaEnlace:
         # Adiciona 1 byte de cabeçalho indicando o tamanho total (header + payload)
         bytes_dados = self._bits_to_bytes(bits_dados)
         quadro = []
-        #TODO: Variavel nao usada
         tamanho_max_payload = 255  # Limite de 1 byte
 
         # Cabeçalho indica o número de bytes no quadro (incluindo ele mesmo)
@@ -68,12 +66,12 @@ class CamadaEnlace:
         return self._bytes_to_bits(quadro)
 
     def desenquadramento_flag_bytes(self, bits_quadro):
-        FLAG = 0x7E #TODO: Variavel nao usada
+        FLAG = 0x7E
         ESC = 0x7D
         bytes_quadro = self._bits_to_bytes(bits_quadro)
         dados = []
 
-        ignore_next = False #TODO: Variavel n usada
+        ignore_next = False
         payload = bytes_quadro[1:-1]
 
         i = 0
@@ -142,17 +140,17 @@ class CamadaEnlace:
     # -------------------------------------
 
     def encode_paridade(self, bits):
-        paridade = 0
+        paridade = 0 # Se o somatório for par
         if sum(bits) % 2 != 0:
-            paridade= 1
-        return bits + [paridade]
+            paridade= 1 # Se somatório for ímpar
+        return bits + [paridade] # Adiciona 1 bit de paridade
 
     def decode_paridade(self, bits):
-        payload = bits[:-1]
-        bit_p = bits[-1]
-        total_ones = sum(payload) + bit_p
-        erro = (total_ones % 2) != 0
-        
+        payload = bits[:-1] # Bits sem o bit de paridade
+        bit_p = bits[-1] # Bit de paridade
+        total_ones = sum(payload) + bit_p # Total de bits 1 + bit de paridade
+
+        erro = (total_ones % 2) != 0 # total_ones tem que ser par pra que não haja erro, caso contrário erro = True
         return payload, erro
 
     def encode_checksum(self, bits):
@@ -166,9 +164,10 @@ class CamadaEnlace:
         
         # Complemento de 1 da soma = checksum
         checksum = (~soma) & 0xFF
+        checksum = self._bytes_to_bits([checksum])
         
         # Retorna dados + checksum
-        return bits + self._bytes_to_bits([checksum])
+        return bits + checksum
 
     def decode_checksum(self, bits):
         """
@@ -193,14 +192,7 @@ class CamadaEnlace:
     def encode_crc(self, bits):
         """
         CRC-32 IEEE 802 - CODIFICAÇÃO
-        Implementa divisão polinomial para gerar código de redundância cíclica
-
         Polinômio G(x) = x³² + x²⁶ + x²³ + x²² + x¹⁶ + x¹² + x¹¹ + x¹⁰ + x⁸ + x⁷ + x⁵ + x⁴ + x² + x + 1
-
-        Como funciona:
-        1. Adiciona 32 zeros aos dados (para divisão)
-        2. Divide por G(x) usando XOR bit a bit
-        3. Resto da divisão = CRC de 32 bits
         """
         if len(bits) == 0:
             return bits
@@ -209,10 +201,10 @@ class CamadaEnlace:
         # Em binário: 100000100110000010001110110110111 (33 bits)
         polinomio = 0x104c11db7
 
-        # PASSO 1: Adiciona 32 zeros para a divisão
+        # Adiciona 32 zeros para a divisão
         extended_bits = bits + [0] * 32
 
-        # PASSO 2: Divisão polinomial bit a bit
+        # Divisão polinomial bit a bit
         divide = extended_bits.copy()
         for i in range(len(bits)):  # Só processa bits originais
             if divide[i]:  # Se bit atual é '1'
@@ -242,7 +234,7 @@ class CamadaEnlace:
 
         polinomio = 0x104c11db7
 
-        # PASSO 1: Divide quadro completo (dados + CRC) por G(x)
+        # Divide quadro completo (dados + CRC) por G(x)
         divide = bits.copy()
         for i in range(len(bits) - 32):  # Processa até sobrar 32 bits
             if divide[i] == 1:
@@ -252,10 +244,10 @@ class CamadaEnlace:
                         poly_bit = (polinomio >> (32 - j)) & 1
                         divide[i + j] ^= poly_bit
 
-        # PASSO 2: Resto da divisão (últimos 32 bits)
+        # Resto da divisão (últimos 32 bits)
         resto = divide[-32:]
 
-        # PASSO 3: Se resto ≠ 0, há erro
+        # Se resto ≠ 0, há erro
         erro = any(bit == 1 for bit in resto)
 
         payload = bits[:-32]  # Remove CRC dos dados
