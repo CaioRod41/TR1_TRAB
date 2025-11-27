@@ -101,7 +101,7 @@ def run_exercicio_111(menu_window):
 
         # 5. Modulação
         if modulation == "NRZ-Polar":
-            t_tx, s_tx = cf.nrz_polar(bits_com_deteccao) # TODO: ta fazendo detecção antes da modulação???
+            t_tx, s_tx = cf.nrz_polar(bits_com_deteccao)
         elif modulation == "Manchester":
             t_tx, s_tx = cf.manchester(bits_com_deteccao)
         elif modulation == "Bipolar (AMI)":
