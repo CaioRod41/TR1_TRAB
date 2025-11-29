@@ -79,9 +79,11 @@ class InterfaceGUI(Gtk.Window):
         lbl_snr = Gtk.Label(label="SNR (dB):")
         grid.attach(lbl_snr, 2, 2, 1, 1)
 
-        self.spin_snr = Gtk.SpinButton.new_with_range(0, 60, 1)
-        self.spin_snr.set_value(0)
+        self.spin_snr = Gtk.SpinButton.new_with_range(-60.0, 60.0, 0.001)
+        self.spin_snr.set_digits(3)  
+        self.spin_snr.set_value(0.0)
         grid.attach(self.spin_snr, 3, 2, 1, 1)
+
 
         # --- LINHA 3: Enquadramento (NOVO) ---
         lbl_enq = Gtk.Label(label="Enquadramento:")

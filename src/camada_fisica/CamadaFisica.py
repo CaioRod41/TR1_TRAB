@@ -1,7 +1,15 @@
+# src/camada_fisica/CamadaFisica.py
 import numpy as np
 
 class CamadaFisica:
+
+    #--------------------------------------INICIO DA 1.1.1-------------------------------------------------
     """
+    Implementa codificações banda-base digitais:
+      - NRZ-Polar
+      - Manchester
+      - Bipolar (AMI)
+
     Cada método de codificação retorna (t, waveform) onde:
       - t: vetor de tempos (numpy array)
       - waveform: amostras (numpy array, float)
@@ -52,45 +60,8 @@ class CamadaFisica:
         return bytes(out)
 
     # -------------------------
-    # Função utilitária: adicionar ruído AWGN
+    # Codificadores (Ex 1.1.1)
     # -------------------------
-    def add_awgn(self, waveform, snr_db):
-        """
-        Adiciona ruído AWGN ao waveform para um SNR (dB) fornecido.
-        SNR definido como 10*log10(signal_power / noise_power).
-        """
-        sig_pow = np.mean(waveform ** 2)
-        snr_linear = 10 ** (snr_db / 10.0)
-        noise_pow = sig_pow / snr_linear if snr_linear != 0 else sig_pow * 0.001
-        noise = np.sqrt(noise_pow) * np.random.randn(len(waveform))
-        return waveform + noise
-
-    def bits_to_symbols(self, bits, modulation='QPSK'):
-        ''' Função para agrupar bits em síbolos (2 bits p/ QPSK e 4 bits p/ 16-QAM'''
-        if modulation == 'QPSK':
-            bits_per_symbol = 2
-        else:
-            bits_per_symbol = 4
-
-        # Padding
-        if len(bits) % bits_per_symbol != 0:
-            pad = bits_per_symbol - (len(bits) % bits_per_symbol)
-            bits = bits + [0] * pad
-
-        simbolos = []
-        for i in range(0, len(bits), bits_per_symbol):
-            simbolo = tuple(bits[i:i + bits_per_symbol])
-            simbolos.append(simbolo)
-
-        return simbolos
-
-    # -------------------------
-    # 1.1.1 Modulção Digital
-    # -------------------------
-    """Implementa codificações banda-base digitais:
-      - NRZ-Polar
-      - Manchester
-      - Bipolar (AMI)"""
     def nrz_polar(self, bits):
         """NRZ-Polar: 1 -> +V ; 0 -> -V"""
         s_per_bit = self.samples_per_bit
@@ -101,21 +72,10 @@ class CamadaFisica:
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
 
-    def decode_nrz_polar(self, waveform):
-        """Decodifica NRZ-Polar por média em cada intervalo de bit (threshold 0)."""
-        s = self.samples_per_bit
-        nb = len(waveform) // s
-        bits = []
-        for i in range(nb):
-            chunk = waveform[i*s:(i+1)*s]
-            m = np.mean(chunk)
-            bits.append(1 if m > 0.0 else 0)
-        return bits
-
     def manchester(self, bits):
         """Manchester:
            1 -> +V then -V
-           0 -> -V then +V
+           0 -> -V then +VS
         """
         s_per_bit = self.samples_per_bit
         half = s_per_bit // 2
@@ -131,20 +91,6 @@ class CamadaFisica:
         waveform = np.array(waveform, dtype=float)
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
-
-    def decode_manchester(self, waveform):
-        """Decodifica Manchester examinando as duas metades do bit."""
-        s = self.samples_per_bit
-        nb = len(waveform) // s
-        bits = []
-        half = s//2
-        for i in range(nb):
-            chunk = waveform[i*s:(i+1)*s]
-            first_mean = np.mean(chunk[:half])
-            second_mean = np.mean(chunk[half:])
-            bits.append(1 if first_mean > second_mean else 0)
-        return bits
-
 
     def bipolar_ami(self, bits):
         """
@@ -172,6 +118,33 @@ class CamadaFisica:
         t = np.arange(len(waveform)) / self.fs
         return t, waveform
 
+    # -------------------------
+    # Decodificadores 
+    # -------------------------
+    def decode_nrz_polar(self, waveform):
+        """Decodifica NRZ-Polar por média em cada intervalo de bit (threshold 0)."""
+        s = self.samples_per_bit
+        nb = len(waveform) // s
+        bits = []
+        for i in range(nb):
+            chunk = waveform[i*s:(i+1)*s]
+            m = np.mean(chunk)
+            bits.append(1 if m > 0.0 else 0)
+        return bits
+
+    def decode_manchester(self, waveform):
+        """Decodifica Manchester examinando as duas metades do bit."""
+        s = self.samples_per_bit
+        nb = len(waveform) // s
+        bits = []
+        half = s//2
+        for i in range(nb):
+            chunk = waveform[i*s:(i+1)*s]
+            first_mean = np.mean(chunk[:half])
+            second_mean = np.mean(chunk[half:])
+            bits.append(1 if first_mean > second_mean else 0)
+        return bits
+
     def decode_bipolar_ami(self, waveform):
         """Decodifica AMI: decide 0 se média próxima de 0, senão 1."""
         s = self.samples_per_bit
@@ -188,7 +161,24 @@ class CamadaFisica:
         return bits
 
     # -------------------------
-    # 1.1.2 Modulação por Portadora
+    # Função utilitária: adicionar ruído AWGN
+    # -------------------------
+    def add_awgn(self, waveform, snr_db):
+        """
+        Adiciona ruído AWGN ao waveform para um SNR (dB) fornecido.
+        SNR definido como 10*log10(signal_power / noise_power).
+        """
+        sig_pow = np.mean(waveform**2)
+        snr_linear = 10**(snr_db/10.0)
+        noise_pow = sig_pow / snr_linear if snr_linear != 0 else sig_pow * 0.001
+        noise = np.sqrt(noise_pow) * np.random.randn(len(waveform))
+        return waveform + noise
+    
+
+    #--------------------------------------FIM DA 1.1.1-------------------------------------------------
+
+    # -------------------------
+    # Modulador (Ex 1.1.2) ASK
     # -------------------------
     def ask(self, bits):
         s_per_bit = self.samples_per_bit
@@ -218,6 +208,9 @@ class CamadaFisica:
             bits.append(1 if power > threshold else 0)
         return bits
 
+    # -------------------------
+    # Modulador (Ex 1.1.2) FSK
+    # -------------------------
     def fsk(self, bits):
         """Modulação FSK, baseada na imagem (reinicia a fase a cada bit)"""
         s_per_bit = self.samples_per_bit
@@ -272,47 +265,69 @@ class CamadaFisica:
 
         return bits
 
+    # -------------------------
+    # Modulador (Ex 1.1.2) QPSK
+    # -------------------------
+    ''' Tavez seja bom calcular BER'''
+    def bits_to_symbols(self, bits, modulation='QPSK'):
+        ''' Função para agrupar bits em síbolos (2 bits p/ QPSK e 4 bits p/ 16-QAM'''
+        if modulation == 'QPSK':
+            bits_per_symbol = 2
+        else:
+            bits_per_symbol = 4
+
+        # Padding
+        if len(bits) % bits_per_symbol != 0:
+            pad = bits_per_symbol - (len(bits) % bits_per_symbol)
+            bits = bits + [0] * pad
+
+        simbolos = []
+        for i in range(0, len(bits), bits_per_symbol):
+            simbolo = tuple(bits[i:i + bits_per_symbol])
+            simbolos.append(simbolo)
+
+        return simbolos
+
     def qpsk(self, bits):
-        simbolos = self.bits_to_symbols(bits, 'QPSK') # Agrupamento de 2 bits por símbolo
+        simbolos = self.bits_to_symbols(bits, 'QPSK')
         samples_per_symbol = 2 * self.samples_per_bit
         Ts = 2 * self.Tb  # Duração do símbolo
         fs = self.fs
-        fc = 1/Ts  # 1 ciclo por símbolo (Nyquist)
+        fc = 1/Ts # Nyquist
 
         waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
 
         # Gray mapping
         mapping = {
-            (0, 0): (self.V, self.V), # Fase: 45º
-            (0, 1): (-self.V, self.V), # Fase: 135º
-            (1, 1): (-self.V, -self.V), # Fase: 225º
-            (1, 0): (self.V, -self.V) # Fase: 315º
+            (0, 0): (self.V, self.V),
+            (0, 1): (-self.V, self.V),
+            (1, 1): (-self.V, -self.V),
+            (1, 0): (self.V, -self.V)
         }
 
         for i, simb in enumerate(simbolos):
             t_local = np.arange(0, samples_per_symbol) / fs
 
-            # Geração de Portadora
-            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            aI, aQ = mapping[simb] # x(t) e y(t)
+            aI, aQ = mapping[simb]
 
-            # Portadora modulada
-            s = aI * I_t + aQ * Q_t
+            s = aI * phi_I + aQ * phi_Q
 
             inicio = i * samples_per_symbol
             fim = inicio + samples_per_symbol
             waveform[inicio:fim] = s
 
         t = np.arange(len(waveform)) / fs
+
         return t, waveform
 
     def decode_qpsk(self, waveform):
         samples_per_symbol = 2 * self.samples_per_bit
         Ts = 2 * self.Tb
         fs = self.fs
-        fc = 1/Ts
+        fc= 1/Ts
 
         num_symbols = len(waveform) // samples_per_symbol
         bits = []
@@ -324,17 +339,16 @@ class CamadaFisica:
 
             t_local = np.arange(0, samples_per_symbol) / fs
 
-            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
             # Correlações (projeções)
-            corr_I = np.sum(simbolo * I_t)
-            corr_Q = np.sum(simbolo * Q_t)
+            corr_I = np.sum(simbolo * phi_I)
+            corr_Q = np.sum(simbolo * phi_Q)
 
             # Normalização
-            E = np.sum(I_t ** 2)  # Energia da portadora
-            I_hat = corr_I / E
-            Q_hat = corr_Q / E
+            I_hat = corr_I / fs
+            Q_hat = corr_Q / fs
 
             # Gray mapping
             if I_hat > 0 and Q_hat > 0:
@@ -352,7 +366,7 @@ class CamadaFisica:
     # Modulador (Ex 1.1.2) 16-QAM
     # -------------------------
     def st_qam(self, bits):
-        simbolos = self.bits_to_symbols(bits, '16-QAM') # Agrupamento de 4 bits por símbolo
+        simbolos = self.bits_to_symbols(bits, '16-QAM')
         samples_per_symbol = 4 * self.samples_per_bit
         Ts = 4 * self.Tb
         fs = self.fs
@@ -360,48 +374,36 @@ class CamadaFisica:
 
         waveform = np.zeros(len(simbolos) * samples_per_symbol, dtype=float)
 
-        # Níveis da constelação 16-QAM quadrada
-        sqrt2 = np.sqrt(2)
-        level1 = -1 / sqrt2 * self.V      # -1/√2
-        level2 = -1 / (3 * sqrt2) * self.V # -1/(3√2)
-        level3 = 1 / (3 * sqrt2) * self.V  # +1/(3√2)
-        level4 = 1 / sqrt2 * self.V       # +1/√2
+        # Níveis normalizados
+        a3 = (1 / np.sqrt(2)) * self.V
+        a1 = (1 / (3 * np.sqrt(2))) * self.V
+        levels = np.array([-a3, -a1, +a1, +a3])
 
         # Gray mapping
-        mapping = {
-            (0, 0, 0, 0): (level2, level2),  # -1/(3√2), -1/(3√2)
-            (0, 0, 0, 1): (level2, level1),  # -1/(3√2), -1/√2
-            (0, 0, 1, 1): (level2, level3),  # -1/(3√2), +1/(3√2)
-            (0, 0, 1, 0): (level2, level4),  # -1/(3√2), +1/√2
-            (0, 1, 0, 0): (level1, level2),  # -1/√2, -1/(3√2)
-            (0, 1, 0, 1): (level1, level1),  # -1/√2, -1/√2
-            (0, 1, 1, 1): (level1, level3),  # -1/√2, +1/(3√2)
-            (0, 1, 1, 0): (level1, level4),  # -1/√2, +1/√2
-            (1, 1, 0, 0): (level3, level2),  # +1/(3√2), -1/(3√2)
-            (1, 1, 0, 1): (level3, level1),  # +1/(3√2), -1/√2
-            (1, 1, 1, 1): (level3, level3),  # +1/(3√2), +1/(3√2)
-            (1, 1, 1, 0): (level3, level4),  # +1/(3√2), +1/√2
-            (1, 0, 0, 0): (level4, level2),  # +1/√2, -1/(3√2)
-            (1, 0, 0, 1): (level4, level1),  # +1/√2, -1/√2
-            (1, 0, 1, 1): (level4, level3),  # +1/√2, +1/(3√2)
-            (1, 0, 1, 0): (level4, level4),  # +1/√2, +1/√2
-        }
+        gray_map = np.array([0, 1, 3, 2])
 
         for i, simb in enumerate(simbolos):
-            aI, aQ = mapping[simb]
+            # Converte tupla de 4 bits para inteiro
+            simb_int = (simb[0] << 3) + (simb[1] << 2) + (simb[2] << 1) + simb[3]
+
+            # Dois bits MSB → eixo I, dois bits LSB → eixo Q
+            I_idx = gray_map[simb_int >> 2]
+            Q_idx = gray_map[simb_int & 0b11]
+
+            aI, aQ = levels[I_idx], levels[Q_idx]
 
             t_local = np.arange(0, samples_per_symbol) / fs
-            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            # s(t) = x(t)cos(2pifct) - y(t)sin(2pifct)
-            s = aI * I_t + aQ * Q_t
+            s = aI * phi_I + aQ * phi_Q
 
             ini = i * samples_per_symbol
             fim = ini + samples_per_symbol
             waveform[ini:fim] = s
 
         t = np.arange(len(waveform)) / fs
+
         return t, waveform
 
     def decode_st_qam(self, waveform):
@@ -413,35 +415,14 @@ class CamadaFisica:
         num_symbols = len(waveform) // samples_per_symbol
         bits = []
 
-        # Níveis da constelação (4 níveis por eixo)
-        """ 
-        índice 0: -1/√2 (level1)
-        índice 1: -1/(3√2) (level2)
-        índice 2: +1/(3√2) (level3)
-        índice 3: +1/√2 (level4)
-        """
-        sqrt2 = np.sqrt(2)
-        levels = np.array([-1 / sqrt2 * self.V, -1 / (3 * sqrt2) * self.V, 1 / (3 * sqrt2) * self.V, 1 / sqrt2 * self.V])
+        # Níveis normalizados
+        a3 = (1 / np.sqrt(2)) * self.V
+        a1 = (1 / (3 * np.sqrt(2))) * self.V
+        levels = np.array([-a3, -a1, +a1, +a3])
 
-        # Mapeamento inverso Gray
-        inverse_mapping = {
-            (1, 1): (0, 0, 0, 0),  # level2, level2
-            (1, 0): (0, 0, 0, 1),  # level2, level1
-            (1, 2): (0, 0, 1, 1),  # level2, level3
-            (1, 3): (0, 0, 1, 0),  # level2, level4
-            (0, 1): (0, 1, 0, 0),  # level1, level2
-            (0, 0): (0, 1, 0, 1),  # level1, level1
-            (0, 2): (0, 1, 1, 1),  # level1, level3
-            (0, 3): (0, 1, 1, 0),  # level1, level4
-            (2, 1): (1, 1, 0, 0),  # level3, level2
-            (2, 0): (1, 1, 0, 1),  # level3, level1
-            (2, 2): (1, 1, 1, 1),  # level3, level3
-            (2, 3): (1, 1, 1, 0),  # level3, level4
-            (3, 1): (1, 0, 0, 0),  # level4, level2
-            (3, 0): (1, 0, 0, 1),  # level4, level1
-            (3, 2): (1, 0, 1, 1),  # level4, level3
-            (3, 3): (1, 0, 1, 0),  # level4, level4
-        }
+        # Gray mapping
+        gray_map = np.array([0, 1, 3, 2])
+        gray_map_inv = np.argsort(gray_map)  # Índice
 
         for i in range(num_symbols):
             ini = i * samples_per_symbol
@@ -449,27 +430,28 @@ class CamadaFisica:
             simbolo = waveform[ini:fim]
 
             t_local = np.arange(0, samples_per_symbol) / fs
-            I_t = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
-            Q_t = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
+            phi_I = np.sqrt(2 / Ts) * np.cos(2 * np.pi * fc * t_local)
+            phi_Q = -np.sqrt(2 / Ts) * np.sin(2 * np.pi * fc * t_local)
 
-            # Correlação (extração I(t) e Q(t))
-            corr_I = np.sum(simbolo * I_t)
-            corr_Q = np.sum(simbolo * Q_t)
-            E = np.sum(I_t ** 2)
+            corr_I = np.sum(simbolo * phi_I)
+            corr_Q = np.sum(simbolo * phi_Q)
+            E = np.sum(phi_I ** 2)
 
             I_hat = corr_I / E
             Q_hat = corr_Q / E
 
-            # Quantização em 4 níveis (decisão pelo nível mais próximo)
+            # --- decisão pelo nível mais próximo ---
             I_idx = np.argmin(np.abs(I_hat - levels))
             Q_idx = np.argmin(np.abs(Q_hat - levels))
 
-            # Conversão para bits usando mapeamento inverso
-            if (I_idx, Q_idx) in inverse_mapping:
-                symbol_bits = inverse_mapping[(I_idx, Q_idx)]
-                bits.extend(symbol_bits)
-            else:
-                # Fallback para símbolos não mapeados
-                bits.extend([0, 0, 0, 0])
+            # --- converte índice para Gray code (2 bits) ---
+            I_bits_idx = gray_map_inv[I_idx]
+            Q_bits_idx = gray_map_inv[Q_idx]
+
+            # --- pega os bits ---
+            I_bits = ((I_bits_idx >> 1) & 1, I_bits_idx & 1)
+            Q_bits = ((Q_bits_idx >> 1) & 1, Q_bits_idx & 1)
+
+            bits.extend(I_bits + Q_bits)
 
         return bits

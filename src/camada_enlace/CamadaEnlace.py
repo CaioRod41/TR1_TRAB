@@ -1,7 +1,6 @@
 class CamadaEnlace:
     def _bits_to_bytes(self, bits):
         # Converte array de bits para lista de inteiros (bytes)
-        # (Você pode copiar a lógica do CamadaFisica.bytes_from_bits)
         pad = (-len(bits)) % 8
         bits = bits + [0] * pad
         out = []
@@ -278,6 +277,7 @@ class CamadaEnlace:
             encoded.extend(block)
         return encoded
 
+    
     def hamming_decode(self, bits):
         """
         Decodifica blocos de 7 bits, corrige 1 erro,
@@ -300,7 +300,7 @@ class CamadaEnlace:
 
             # converte síndrome para posição do erro (1-7)
             error_pos = s1 + (s2 << 1) + (s3 << 2)
-
+                        
             # corrige
             if error_pos != 0:
                 block[error_pos - 1] ^= 1  # inverte bit
@@ -310,3 +310,5 @@ class CamadaEnlace:
 
             decoded.extend([d1, d2, d3, d4])
         return decoded
+    
+    
