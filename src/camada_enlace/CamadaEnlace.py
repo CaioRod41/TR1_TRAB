@@ -190,19 +190,15 @@ class CamadaEnlace:
 
     def encode_crc(self, bits):
         """
-        CRC-32 IEEE 802 - CODIFICAÇÃO
         Polinômio G(x) = x³² + x²⁶ + x²³ + x²² + x¹⁶ + x¹² + x¹¹ + x¹⁰ + x⁸ + x⁷ + x⁵ + x⁴ + x² + x + 1
         """
         if len(bits) == 0:
             return bits
-
         # Polinômio CRC-32 IEEE 802: 0x104C11DB7
         # Em binário: 100000100110000010001110110110111 (33 bits)
         polinomio = 0x104c11db7
-
         # Adiciona 32 zeros para a divisão
         extended_bits = bits + [0] * 32
-
         # Divisão polinomial bit a bit
         divide = extended_bits.copy()
         for i in range(len(bits)):  # Só processa bits originais
@@ -213,26 +209,20 @@ class CamadaEnlace:
                         # Extrai bit j do polinômio (MSB primeiro)
                         poly_bit = (polinomio >> (32 - j)) & 1
                         divide[i + j] ^= poly_bit
-
-        # PASSO 3: CRC são os últimos 32 bits (resto da divisão)
+        # CRC são os últimos 32 bits (resto da divisão)
         crc = divide[-32:]
         return bits + crc  # Dados originais + CRC
 
     def decode_crc(self, bits):
         """
-        CRC-32 IEEE 802 - VERIFICAÇÃO
         Verifica integridade dividindo quadro completo por G(x)
-
         Se resto = 0 → sem erro
         Se resto ≠ 0 → erro detectado
-
-        Retorna: (dados_sem_crc, erro_detectado)
         """
         if len(bits) < 33:  # Mínimo: 1 bit dados + 32 bits CRC
             return [], True
 
         polinomio = 0x104c11db7
-
         # Divide quadro completo (dados + CRC) por G(x)
         divide = bits.copy()
         for i in range(len(bits) - 32):  # Processa até sobrar 32 bits
@@ -242,13 +232,10 @@ class CamadaEnlace:
                     if i + j < len(divide):
                         poly_bit = (polinomio >> (32 - j)) & 1
                         divide[i + j] ^= poly_bit
-
         # Resto da divisão (últimos 32 bits)
         resto = divide[-32:]
-
         # Se resto ≠ 0, há erro
         erro = any(bit == 1 for bit in resto)
-
         payload = bits[:-32]  # Remove CRC dos dados
         return payload, erro
 
