@@ -1,4 +1,3 @@
-# src/simulador.py
 import sys
 from pathlib import Path
 
@@ -70,14 +69,14 @@ def run_exercicio_111(menu_window):
         cf = CamadaFisica(samples_per_bit=spb, V=V)
         enlace = CamadaEnlace()
 
-        # 1. Texto → bits
+        # Texto → bits
         bits_tx = text_to_bits(text)
 
-        # 2. Se Hamming estiver ativado → aplica antes de tudo
+        # Se Hamming estiver ativado → aplica antes de tudo
         if apply_hamming:
             bits_tx = enlace.hamming_encode(bits_tx)
 
-        # 3. Enquadramento
+        # Enquadramento
         bits_para_transmitir = bits_tx
         if framing_type == "Contagem de Caracteres":
             bits_para_transmitir = enlace.enquadramento_contagem_caracteres(bits_tx)
@@ -89,7 +88,7 @@ def run_exercicio_111(menu_window):
         if len(bits_para_transmitir) == 0:
             return {}
 
-        # 4. Detecção de erro (somente se NÃO for Hamming)
+        # Detecção de erro (somente se NÃO for Hamming)
         bits_com_deteccao = bits_para_transmitir
         if not apply_hamming:
             if error_detection == "Paridade Par":
@@ -99,7 +98,7 @@ def run_exercicio_111(menu_window):
             elif error_detection == "CRC-32":
                 bits_com_deteccao = enlace.encode_crc(bits_para_transmitir)
 
-        # 5. Modulação
+        # Modulação
         if modulation == "NRZ-Polar":
             t_tx, s_tx = cf.nrz_polar(bits_com_deteccao)
         elif modulation == "Manchester":
@@ -109,7 +108,7 @@ def run_exercicio_111(menu_window):
 
         s_rx = cf.add_awgn(s_tx, snr_db) if snr_db > 0 else s_tx
 
-        # 6. Demodulação
+        # Demodulação
         if modulation == "NRZ-Polar":
             bits_rx_encoded = cf.decode_nrz_polar(s_rx)
         elif modulation == "Manchester":
@@ -117,12 +116,12 @@ def run_exercicio_111(menu_window):
         elif modulation == "Bipolar (AMI)":
             bits_rx_encoded = cf.decode_bipolar_ami(s_rx)
 
-        # 7. Se tiver Hamming → decodifica AGORA
+        # Se tiver Hamming → decodifica AGORA
         if apply_hamming:
             bits_corrigidos = enlace.hamming_decode(bits_rx_encoded)
             erro_detectado = False
         else:
-            # detecção de erro normal
+            # Detecção de erro normal
             bits_corrigidos = bits_rx_encoded
             erro_detectado = False
 
@@ -147,7 +146,7 @@ def run_exercicio_111(menu_window):
             erro_detectado = True
             bits_final = []
 
-        # 9. Se tinha Hamming → já está corrigido
+        # Se tinha Hamming → já está corrigido
         text_rx = bits_to_text(bits_final)
 
         return {
@@ -183,7 +182,7 @@ def run_exercicio_112(menu_window):
         V = params["V"]
         snr_db = params["snr_db"]
 
-          # 1. Pega o enquadramento escolhido
+        # Pega o enquadramento escolhido
         framing_type = params.get("framing", "Nenhum")
         # Pega o método de detecção de erro
         error_detection = params.get("error_detec", "Paridade Par")
@@ -217,7 +216,7 @@ def run_exercicio_112(menu_window):
             elif error_detection == "CRC-32":
                 bits_com_deteccao = enlace.encode_crc(bits_para_transmitir)
 
-        # 4. Modulação - CORREÇÕES ESPECÍFICAS PARA QPSK E 16-QAM
+        # Modulação
         if modulation == "ASK":
             t_tx, s_tx = cf.ask(bits_com_deteccao)
         elif modulation == "FSK":
